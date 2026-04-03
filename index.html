@@ -8,79 +8,60 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Kanit', sans-serif; background: #f1f5f9; }
+        body { font-family: 'Kanit', sans-serif; background: #f1f5f9; padding-bottom: 84px; }
 
-        .badge-game {
-            display: inline-flex;
-            align-items: center;
-            background: #e0e7ff;
-            color: #4338ca;
-            border-radius: 99px;
-            padding: 1px 8px;
-            font-size: 11px;
-            font-weight: 700;
-            gap: 3px;
-        }
-        .badge-game.top { background: #fef3c7; color: #b45309; }
+        .badge-game { display:inline-flex; align-items:center; background:#e0e7ff; color:#4338ca; border-radius:99px; padding:1px 8px; font-size:11px; font-weight:700; gap:3px; }
+        .badge-game.top { background:#fef3c7; color:#b45309; }
 
-        .court-card {
-            background: white;
-            border-radius: 2rem;
-            overflow: hidden;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.05);
-        }
+        .court-card { background:white; border-radius:2rem; overflow:hidden; border:1px solid #e2e8f0; box-shadow:0 2px 12px rgba(0,0,0,0.05); }
+        .team-a { background:linear-gradient(135deg,#eef2ff 0%,#e0e7ff 100%); }
+        .team-b { background:linear-gradient(135deg,#fff1f2 0%,#ffe4e6 100%); }
 
-        .team-a { background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%); }
-        .team-b { background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%); }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; height:18px; width:18px; border-radius:50%; background:#4f46e5; cursor:pointer; }
+        .btn-main { background:linear-gradient(135deg,#6366f1,#4f46e5); box-shadow:0 4px 20px rgba(99,102,241,0.35); }
+        .btn-green { background:linear-gradient(135deg,#22c55e,#16a34a); box-shadow:0 4px 20px rgba(34,197,94,0.35); }
+        .btn-emerald { background:linear-gradient(135deg,#10b981,#059669); box-shadow:0 4px 20px rgba(16,185,129,0.35); }
 
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 18px; width: 18px;
-            border-radius: 50%;
-            background: #4f46e5;
-            cursor: pointer;
-        }
+        @keyframes pop-in { 0%{opacity:0;transform:scale(0.93) translateY(8px)} 100%{opacity:1;transform:scale(1) translateY(0)} }
+        .pop-in { animation:pop-in 0.25s ease forwards; }
+        .player-row:hover { background:#f8fafc; }
 
-        .btn-main {
-            background: linear-gradient(135deg, #6366f1, #4f46e5);
-            box-shadow: 0 4px 20px rgba(99,102,241,0.35);
-        }
-        .btn-green {
-            background: linear-gradient(135deg, #22c55e, #16a34a);
-            box-shadow: 0 4px 20px rgba(34,197,94,0.35);
-        }
+        .bottom-nav { position:fixed; bottom:0; left:0; right:0; background:white; border-top:1px solid #e2e8f0; display:flex; z-index:100; box-shadow:0 -4px 20px rgba(0,0,0,0.07); }
+        .nav-btn { flex:1; padding:13px 8px 11px; display:flex; flex-direction:column; align-items:center; gap:3px; font-size:11px; font-weight:700; color:#94a3b8; transition:all 0.2s; border:none; background:none; cursor:pointer; }
+        .nav-btn.active { color:#4f46e5; }
+        .nav-btn.active .nav-icon { color:#4f46e5; }
 
-        @keyframes pop-in {
-            0% { opacity:0; transform: scale(0.92) translateY(8px); }
-            100% { opacity:1; transform: scale(1) translateY(0); }
-        }
-        .pop-in { animation: pop-in 0.25s ease forwards; }
+        .page { display:none; }
+        .page.active { display:block; }
 
-        .player-row { transition: background 0.2s; }
-        .player-row:hover { background: #f8fafc; }
+        .shuttle-entry { background:#f8fafc; border-radius:1.2rem; padding:11px 13px; border:1px solid #e2e8f0; }
+        .money-card { background:white; border-radius:1.75rem; border:1px solid #e2e8f0; overflow:hidden; box-shadow:0 2px 12px rgba(0,0,0,0.04); }
+        .owes-row { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid #f1f5f9; gap:8px; }
+        .owes-row:last-child { border-bottom:none; }
+        .payer-chip { display:inline-flex;align-items:center;background:#fef9c3;color:#854d0e;border-radius:99px;padding:2px 9px;font-size:11px;font-weight:700;border:1px solid #fde68a; }
+        .credit-chip { display:inline-flex;align-items:center;background:#dcfce7;color:#166534;border-radius:99px;padding:2px 8px;font-size:10px;font-weight:700; }
     </style>
 </head>
-<body class="min-h-screen p-3 sm:p-6">
-    <div class="max-w-4xl mx-auto">
+<body class="min-h-screen">
+<div class="max-w-4xl mx-auto p-3 sm:p-6">
 
-        <!-- Header -->
-        <header class="flex items-center justify-between mb-6 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-            <div>
-                <h1 class="text-2xl font-extrabold text-indigo-600 flex items-center gap-2">
-                    🏸 Bad Match
-                    <span class="text-xs bg-indigo-100 text-indigo-500 px-2 py-1 rounded-lg font-semibold">2v2</span>
-                </h1>
-                <p class="text-slate-400 text-xs">by <span class="text-indigo-400 font-semibold">prem</span> · ระบบจัดคู่แบดมินตันแบบทีม</p>
-            </div>
-            <button onclick="resetAll()" class="p-2 text-slate-300 hover:text-red-400 rounded-full transition-all" title="รีเซ็ตทั้งหมด">
-                <i data-lucide="rotate-ccw"></i>
-            </button>
-        </header>
+    <!-- Header -->
+    <header class="flex items-center justify-between mb-6 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+        <div>
+            <h1 class="text-2xl font-extrabold text-indigo-600 flex items-center gap-2">
+                🏸 Bad Match
+                <span class="text-xs bg-indigo-100 text-indigo-500 px-2 py-1 rounded-lg font-semibold">2v2</span>
+            </h1>
+            <p class="text-slate-400 text-xs">by <span class="text-indigo-400 font-semibold">prem</span> · ระบบจัดคู่แบดมินตันแบบทีม</p>
+        </div>
+        <button onclick="resetAll()" class="p-2 text-slate-300 hover:text-red-400 rounded-full transition-all" title="รีเซ็ตทั้งหมด">
+            <i data-lucide="rotate-ccw"></i>
+        </button>
+    </header>
 
+    <!-- ===================== PAGE: MATCH ===================== -->
+    <div id="page-match" class="page active">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-            <!-- Add Player -->
             <div class="space-y-4">
                 <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
                     <h2 class="text-base font-bold mb-4 flex items-center gap-2 text-slate-700">
@@ -91,19 +72,14 @@
                             class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-400 focus:outline-none text-base"
                             onkeydown="if(event.key==='Enter') addPlayer()">
                         <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200">
-                            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">
-                                ระดับฝีมือ (<span id="skillVal">3</span> ดาว)
-                            </label>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">ระดับฝีมือ (<span id="skillVal">3</span> ดาว)</label>
                             <input type="range" id="playerSkill" min="1" max="5" value="3"
-                                oninput="document.getElementById('skillVal').innerText = this.value"
+                                oninput="document.getElementById('skillVal').innerText=this.value"
                                 class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
                         </div>
-                        <button onclick="addPlayer()" class="btn-main w-full py-3.5 text-white rounded-2xl font-bold active:scale-95 transition-transform">
-                            เพิ่มเข้าก๊วน
-                        </button>
+                        <button onclick="addPlayer()" class="btn-main w-full py-3.5 text-white rounded-2xl font-bold active:scale-95 transition-transform">เพิ่มเข้าก๊วน</button>
                     </div>
                 </div>
-
                 <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
                     <div class="flex items-center justify-between">
                         <span class="font-bold text-slate-700 flex items-center gap-2 text-sm">
@@ -114,18 +90,14 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Player List -->
             <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
                 <h2 class="text-base font-bold mb-1 text-slate-700 flex items-center justify-between">
-                    <span>สมาชิกทั้งหมด (<span id="playerCount">0</span> คน)</span>
-                    <span class="text-[10px] text-slate-400 font-normal">เกม = จำนวนรอบที่เล่น</span>
+                    <span>สมาชิก (<span id="playerCount">0</span> คน)</span>
+                    <span class="text-[10px] text-slate-400 font-normal">เกม = รอบที่เล่น</span>
                 </h2>
                 <div id="playerList" class="divide-y divide-slate-50 max-h-[280px] overflow-y-auto mt-3"></div>
             </div>
         </div>
-
-        <!-- Action Buttons -->
         <div class="mt-6 flex gap-3">
             <button onclick="generateMatches()" class="btn-green flex-[3] py-5 text-white rounded-3xl font-black text-xl active:scale-95 transition-transform flex items-center justify-center gap-2">
                 <i data-lucide="shuffle" class="w-6 h-6"></i> สุ่มทีมแข่ง!
@@ -135,241 +107,446 @@
                 <i data-lucide="history" class="w-5 h-5"></i>
             </button>
         </div>
-
-        <!-- Results -->
         <div id="results" class="hidden mt-6 space-y-4">
             <h2 class="text-xl font-black text-slate-800">ตารางรอบนี้ 🏸</h2>
             <div id="matchGrid" class="grid grid-cols-1 gap-4"></div>
-
             <div id="waitingSection" class="hidden bg-amber-50 p-5 rounded-[2rem] border border-amber-100">
                 <h3 class="text-amber-700 font-black text-sm mb-3">⏳ พักรอ / บาย (<span id="waitCount">0</span> คน)</h3>
                 <div id="waitingList" class="flex flex-wrap gap-2"></div>
             </div>
         </div>
-
     </div>
 
-    <script>
-        let players = JSON.parse(localStorage.getItem('badmy_v2_players')) || [];
-        let partnerHistory = [];
+    <!-- ===================== PAGE: MONEY ===================== -->
+    <div id="page-money" class="page">
 
-        function save() {
-            localStorage.setItem('badmy_v2_players', JSON.stringify(players));
-            renderPlayers();
+        <!-- Who paid + fees -->
+        <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 mb-4">
+            <h2 class="text-base font-bold mb-3 flex items-center gap-2 text-slate-700">
+                <i data-lucide="wallet" class="text-emerald-500 w-5 h-5"></i> ใครจ่ายไปก่อน?
+            </h2>
+            <select id="payerSelect"
+                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-emerald-400 focus:outline-none text-base font-bold text-slate-700 mb-3">
+                <option value="">-- เลือกคนที่จ่ายก่อน --</option>
+            </select>
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">ค่าคอร์ท (บาท)</label>
+                <input type="number" id="courtFee" value="0" min="0"
+                    class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-emerald-400 focus:outline-none text-base font-bold text-slate-700">
+            </div>
+        </div>
+
+        <!-- Shuttle usage -->
+        <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 mb-4">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-base font-bold flex items-center gap-2 text-slate-700">
+                    <i data-lucide="feather" class="text-emerald-500 w-5 h-5"></i> ลูกแบดที่ใช้
+                </h2>
+                <button onclick="addShuttleEntry()"
+                    class="text-xs bg-emerald-50 text-emerald-600 font-bold px-3 py-1.5 rounded-xl hover:bg-emerald-100 transition-colors flex items-center gap-1">
+                    <i data-lucide="plus" class="w-3 h-3"></i> เพิ่มรายการ
+                </button>
+            </div>
+            <div id="shuttleList" class="space-y-2"></div>
+            <p id="shuttleEmpty" class="text-slate-300 text-sm text-center py-4">กดเพิ่มรายการเพื่อระบุลูกที่ใช้</p>
+            <div id="shuttleSummaryBar" class="hidden mt-3 bg-emerald-50 rounded-2xl px-4 py-2.5 flex items-center justify-between">
+                <span class="text-xs text-emerald-700 font-bold">รวมลูกทั้งหมด</span>
+                <span id="shuttleTotalText" class="text-sm font-black text-emerald-700"></span>
+            </div>
+        </div>
+
+        <!-- Who splits -->
+        <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 mb-4">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-base font-bold flex items-center gap-2 text-slate-700">
+                    <i data-lucide="users" class="text-emerald-500 w-5 h-5"></i> คนที่ร่วมหาร
+                </h2>
+                <div class="flex gap-2">
+                    <button onclick="toggleAllSplit(true)" class="text-[10px] text-indigo-500 font-bold hover:underline">ทั้งหมด</button>
+                    <span class="text-slate-300 text-xs">|</span>
+                    <button onclick="toggleAllSplit(false)" class="text-[10px] text-slate-400 font-bold hover:underline">ล้าง</button>
+                </div>
+            </div>
+            <div id="splitPlayerList" class="grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
+            <p id="splitEmpty" class="text-slate-300 text-sm text-center py-4 hidden">เพิ่มผู้เล่นในหน้า Match ก่อนนะ</p>
+        </div>
+
+        <!-- Calculate button -->
+        <button onclick="calculateMoney()"
+            class="btn-emerald w-full py-5 text-white rounded-3xl font-black text-xl active:scale-95 transition-transform flex items-center justify-center gap-2 mb-5">
+            <i data-lucide="calculator" class="w-6 h-6"></i> คำนวณยอดสุทธิ
+        </button>
+
+        <!-- Result -->
+        <div id="moneyResult" class="hidden space-y-3"></div>
+    </div>
+
+</div>
+
+<!-- Bottom Navigation -->
+<nav class="bottom-nav">
+    <button class="nav-btn active" id="nav-match" onclick="switchTab('match')">
+        <i data-lucide="shuffle" class="w-5 h-5 nav-icon"></i>
+        <span>จัดคู่</span>
+    </button>
+    <button class="nav-btn" id="nav-money" onclick="switchTab('money')">
+        <i data-lucide="receipt" class="w-5 h-5 nav-icon"></i>
+        <span>คิดเงิน</span>
+    </button>
+</nav>
+
+<script>
+    let players = JSON.parse(localStorage.getItem('badmy_v2_players')) || [];
+    let partnerHistory = [];
+    let shuttleEntries = [];   // { id, ownerId, qty }
+    let splitSelected = {};    // { playerId: bool }
+
+    // init split selection from saved players
+    players.forEach(p => { splitSelected[p.id] = true; });
+
+    // ===== TAB NAVIGATION =====
+    function switchTab(tab) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('page-' + tab).classList.add('active');
+        document.getElementById('nav-' + tab).classList.add('active');
+        if (tab === 'money') renderMoneyPage();
+    }
+
+    // ===== PLAYERS =====
+    function save() {
+        localStorage.setItem('badmy_v2_players', JSON.stringify(players));
+        renderPlayers();
+    }
+
+    function addPlayer() {
+        const inp = document.getElementById('playerName');
+        const name = inp.value.trim();
+        const skill = parseInt(document.getElementById('playerSkill').value);
+        if (!name) return;
+        const id = Math.random().toString(36).substr(2, 9);
+        players.push({ id, name, skill, games: 0 });
+        splitSelected[id] = true;
+        inp.value = '';
+        save();
+    }
+
+    function removePlayer(id) {
+        players = players.filter(p => p.id !== id);
+        delete splitSelected[id];
+        save();
+    }
+
+    function adjustGames(id, delta) {
+        const idx = players.findIndex(p => p.id === id);
+        if (idx === -1) return;
+        players[idx].games = Math.max(0, players[idx].games + delta);
+        save();
+    }
+
+    function renderPlayers() {
+        const list = document.getElementById('playerList');
+        document.getElementById('playerCount').innerText = players.length;
+        if (players.length === 0) {
+            list.innerHTML = '<p class="text-slate-300 text-sm text-center py-6">ยังไม่มีสมาชิก</p>';
+            lucide.createIcons(); return;
         }
+        const maxG = Math.max(...players.map(p => p.games));
+        list.innerHTML = players.map(p => {
+            const top = p.games === maxG && maxG > 0;
+            return `<div class="player-row flex items-center justify-between py-2.5 px-2 rounded-xl">
+                <div class="flex items-center gap-2">
+                    <span class="text-sm font-bold text-slate-700">${p.name}</span>
+                    <span class="text-indigo-300 text-xs">&#11088;${p.skill}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="adjustGames('${p.id}',-1)" class="w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 hover:bg-red-100 text-slate-400 hover:text-red-500 font-bold text-sm transition-colors" style="flex-shrink:0">&#8722;</button>
+                    <span class="badge-game ${top?'top':''}" style="min-width:62px;justify-content:center">&#127918; ${p.games} เกม</span>
+                    <button onclick="adjustGames('${p.id}',1)" class="w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 hover:bg-indigo-100 text-slate-400 hover:text-indigo-500 font-bold text-sm transition-colors" style="flex-shrink:0">&#43;</button>
+                    <button onclick="removePlayer('${p.id}')" class="text-slate-200 hover:text-red-400 transition-colors ml-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                </div>
+            </div>`;
+        }).join('');
+        lucide.createIcons();
+    }
 
-        function addPlayer() {
-            const nameInput = document.getElementById('playerName');
-            const skill = parseInt(document.getElementById('playerSkill').value);
-            const name = nameInput.value.trim();
-            if (!name) return;
-            players.push({
-                id: Math.random().toString(36).substr(2, 9),
-                name,
-                skill,
-                games: 0  // ← นับจำนวนเกมที่เล่นแล้ว
+    // ===== MATCH =====
+    function generateMatches() {
+        if (players.length < 4) { alert('ต้องมีผู้เล่นอย่างน้อย 4 คนสำหรับเล่นคู่ (2v2)'); return; }
+        const courts = parseInt(document.getElementById('courtCount').value);
+        let sorted = [...players].sort((a, b) => a.games !== b.games ? a.games - b.games : Math.random() - 0.5);
+        let playing = sorted.slice(0, Math.min(courts * 4, sorted.length));
+        let waiting = sorted.slice(playing.length);
+        const ac = Math.floor(playing.length / 4);
+        waiting = [...waiting, ...playing.slice(ac * 4)];
+        playing = playing.slice(0, ac * 4);
+        const matches = [];
+        for (let c = 0; c < ac; c++) {
+            const grp = playing.slice(c*4, c*4+4);
+            const best = splitIntoTeams(grp);
+            matches.push({ court: c+1, teamA: [best.t1p1, best.t1p2], teamB: [best.t2p1, best.t2p2] });
+            [best.t1p1, best.t1p2, best.t2p1, best.t2p2].forEach(p => {
+                const idx = players.findIndex(x => x.id === p.id);
+                if (idx !== -1) players[idx].games++;
             });
-            nameInput.value = '';
-            save();
+            partnerHistory.push(pk(best.t1p1.id, best.t1p2.id));
+            partnerHistory.push(pk(best.t2p1.id, best.t2p2.id));
         }
+        save();
+        displayMatches(matches, waiting);
+    }
 
-        function removePlayer(id) {
-            players = players.filter(p => p.id !== id);
-            save();
-        }
+    function pk(a, b) { return [a,b].sort().join('-'); }
 
-        function renderPlayers() {
-            const list = document.getElementById('playerList');
-            document.getElementById('playerCount').innerText = players.length;
+    function splitIntoTeams(g) {
+        const opts = [
+            {t1:[g[0],g[1]],t2:[g[2],g[3]],s:0},
+            {t1:[g[0],g[2]],t2:[g[1],g[3]],s:0},
+            {t1:[g[0],g[3]],t2:[g[1],g[2]],s:0}
+        ];
+        opts.forEach(o => {
+            if (partnerHistory.includes(pk(o.t1[0].id, o.t1[1].id))) o.s++;
+            if (partnerHistory.includes(pk(o.t2[0].id, o.t2[1].id))) o.s++;
+        });
+        const b = opts.sort((a,b) => a.s - b.s)[0];
+        return { t1p1:b.t1[0], t1p2:b.t1[1], t2p1:b.t2[0], t2p2:b.t2[1] };
+    }
 
-            if (players.length === 0) {
-                list.innerHTML = `<p class="text-slate-300 text-sm text-center py-6">ยังไม่มีสมาชิก</p>`;
-                lucide.createIcons();
-                return;
-            }
-
-            // หาค่า max games เพื่อไฮไลต์
-            const maxGames = Math.max(...players.map(p => p.games));
-
-            list.innerHTML = players.map(p => {
-                const isTop = p.games === maxGames && maxGames > 0;
-                return `
-                <div class="player-row flex items-center justify-between py-2.5 px-2 rounded-xl">
-                    <div class="flex items-center gap-2">
-                        <div class="text-sm font-bold text-slate-700">${p.name}</div>
-                        <span class="text-indigo-300 text-xs">&#11088;${p.skill}</span>
+    function displayMatches(matches, waiting) {
+        document.getElementById('results').classList.remove('hidden');
+        document.getElementById('matchGrid').innerHTML = matches.map((m,i) => `
+            <div class="court-card pop-in" style="animation-delay:${i*0.07}s">
+                <div class="px-5 pt-4 pb-2"><span class="text-[11px] font-black text-slate-400 uppercase tracking-widest">COURT ${m.court}</span></div>
+                <div class="flex flex-col sm:flex-row items-stretch">
+                    <div class="team-a flex-1 px-5 py-4 text-center rounded-b-3xl sm:rounded-none sm:rounded-bl-3xl">
+                        <div class="text-indigo-500 text-[10px] font-black uppercase tracking-wider mb-2">Team A</div>
+                        ${m.teamA.map(p=>`<div class="font-black text-slate-800 text-base leading-tight">${p.name} <span class="text-xs font-normal text-slate-400">&#11088;${p.skill}</span></div><div class="text-[10px] text-indigo-400 font-semibold mb-1">&#127918; ${p.games} เกม</div>`).join('')}
                     </div>
-                    <div class="flex items-center gap-2">
-                        <button onclick="adjustGames('${p.id}', -1)"
-                            class="w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 hover:bg-red-100 text-slate-400 hover:text-red-500 font-bold text-sm transition-colors"
-                            style="flex-shrink:0;line-height:1">&#8722;</button>
-                        <span class="badge-game ${isTop ? 'top' : ''}" style="min-width:62px;justify-content:center">
-                            &#127918; ${p.games} เกม
-                        </span>
-                        <button onclick="adjustGames('${p.id}', 1)"
-                            class="w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 hover:bg-indigo-100 text-slate-400 hover:text-indigo-500 font-bold text-sm transition-colors"
-                            style="flex-shrink:0;line-height:1">&#43;</button>
-                        <button onclick="removePlayer('${p.id}')" class="text-slate-200 hover:text-red-400 transition-colors ml-1">
-                            <i data-lucide="trash-2" class="w-4 h-4"></i>
-                        </button>
-                    </div>
-                </div>`;
-            }).join('');
-            lucide.createIcons();
-        }
-
-        // ===== Core: Fair Rotation =====
-        function generateMatches() {
-            if (players.length < 4) {
-                alert('ต้องมีผู้เล่นอย่างน้อย 4 คนสำหรับเล่นคู่ (2v2)');
-                return;
-            }
-
-            const courtCount = parseInt(document.getElementById('courtCount').value);
-            const needed = courtCount * 4;
-
-            // เรียงผู้เล่นตามจำนวนเกมที่เล่น (น้อย → มาก) แล้ว shuffle คนที่มีเกมเท่ากัน
-            let sorted = [...players].sort((a, b) => {
-                if (a.games !== b.games) return a.games - b.games;
-                return Math.random() - 0.5; // shuffle คนที่เกมเท่ากัน
-            });
-
-            // เอาคน needed คนแรก (เล่นน้อยสุด) ลงสนาม ส่วนที่เหลือพัก
-            let playing = sorted.slice(0, Math.min(needed, sorted.length));
-            let waiting = sorted.slice(playing.length);
-
-            // ถ้าคนเล่นไม่ครบ 4 ต่อคอร์ท ตัดคอร์ทที่ไม่มีคนลงไป
-            const actualCourts = Math.floor(playing.length / 4);
-            waiting = [...waiting, ...playing.slice(actualCourts * 4)];
-            playing = playing.slice(0, actualCourts * 4);
-
-            const matches = [];
-
-            for (let c = 0; c < actualCourts; c++) {
-                let group = playing.slice(c * 4, c * 4 + 4);
-                let best = splitIntoTeams(group);
-
-                matches.push({
-                    court: c + 1,
-                    teamA: [best.t1p1, best.t1p2],
-                    teamB: [best.t2p1, best.t2p2]
-                });
-
-                // เพิ่มจำนวนเกมให้ผู้เล่น 4 คนนี้
-                [best.t1p1, best.t1p2, best.t2p1, best.t2p2].forEach(p => {
-                    const idx = players.findIndex(x => x.id === p.id);
-                    if (idx !== -1) players[idx].games++;
-                });
-
-                partnerHistory.push(getPairKey(best.t1p1.id, best.t1p2.id));
-                partnerHistory.push(getPairKey(best.t2p1.id, best.t2p2.id));
-            }
-
-            save(); // บันทึกจำนวนเกมใหม่
-            display(matches, waiting);
-        }
-
-        function getPairKey(id1, id2) {
-            return [id1, id2].sort().join('-');
-        }
-
-        function splitIntoTeams(g) {
-            const options = [
-                { t1: [g[0], g[1]], t2: [g[2], g[3]], score: 0 },
-                { t1: [g[0], g[2]], t2: [g[1], g[3]], score: 0 },
-                { t1: [g[0], g[3]], t2: [g[1], g[2]], score: 0 }
-            ];
-
-            options.forEach(opt => {
-                if (partnerHistory.includes(getPairKey(opt.t1[0].id, opt.t1[1].id))) opt.score++;
-                if (partnerHistory.includes(getPairKey(opt.t2[0].id, opt.t2[1].id))) opt.score++;
-            });
-
-            const best = options.sort((a, b) => a.score - b.score)[0];
-            return {
-                t1p1: best.t1[0], t1p2: best.t1[1],
-                t2p1: best.t2[0], t2p2: best.t2[1]
-            };
-        }
-
-        function display(matches, waiting) {
-            const res = document.getElementById('results');
-            const grid = document.getElementById('matchGrid');
-            res.classList.remove('hidden');
-
-            grid.innerHTML = matches.map((m, i) => `
-                <div class="court-card pop-in" style="animation-delay: ${i * 0.07}s">
-                    <div class="flex items-center justify-between px-5 pt-4 pb-2">
-                        <span class="text-[11px] font-black text-slate-400 uppercase tracking-widest">COURT ${m.court}</span>
-                    </div>
-                    <div class="flex flex-col sm:flex-row items-stretch gap-0">
-                        <div class="team-a flex-1 px-5 py-4 text-center rounded-b-3xl sm:rounded-none sm:rounded-bl-3xl">
-                            <div class="text-indigo-500 text-[10px] font-black uppercase tracking-wider mb-2">Team A</div>
-                            ${m.teamA.map(p => `
-                                <div class="font-black text-slate-800 text-base leading-tight">${p.name}
-                                    <span class="text-xs font-normal text-slate-400">⭐${p.skill}</span>
-                                </div>
-                                <div class="text-[10px] text-indigo-400 font-semibold mb-1">🎮 ${p.games} เกม</div>
-                            `).join('')}
-                        </div>
-
-                        <div class="flex items-center justify-center px-3 py-2 sm:py-0">
-                            <span class="text-slate-300 font-black text-sm">VS</span>
-                        </div>
-
-                        <div class="team-b flex-1 px-5 py-4 text-center rounded-b-3xl sm:rounded-none sm:rounded-br-3xl">
-                            <div class="text-rose-500 text-[10px] font-black uppercase tracking-wider mb-2">Team B</div>
-                            ${m.teamB.map(p => `
-                                <div class="font-black text-slate-800 text-base leading-tight">${p.name}
-                                    <span class="text-xs font-normal text-slate-400">⭐${p.skill}</span>
-                                </div>
-                                <div class="text-[10px] text-rose-400 font-semibold mb-1">🎮 ${p.games} เกม</div>
-                            `).join('')}
-                        </div>
+                    <div class="flex items-center justify-center px-3 py-2 sm:py-0"><span class="text-slate-300 font-black text-sm">VS</span></div>
+                    <div class="team-b flex-1 px-5 py-4 text-center rounded-b-3xl sm:rounded-none sm:rounded-br-3xl">
+                        <div class="text-rose-500 text-[10px] font-black uppercase tracking-wider mb-2">Team B</div>
+                        ${m.teamB.map(p=>`<div class="font-black text-slate-800 text-base leading-tight">${p.name} <span class="text-xs font-normal text-slate-400">&#11088;${p.skill}</span></div><div class="text-[10px] text-rose-400 font-semibold mb-1">&#127918; ${p.games} เกม</div>`).join('')}
                     </div>
                 </div>
-            `).join('');
+            </div>`).join('');
+        const ws = document.getElementById('waitingSection');
+        if (waiting.length > 0) {
+            ws.classList.remove('hidden');
+            document.getElementById('waitCount').innerText = waiting.length;
+            document.getElementById('waitingList').innerHTML = waiting.map(p =>
+                `<div class="bg-white px-4 py-2 rounded-2xl text-sm font-bold text-amber-900 border border-amber-200 flex items-center gap-2">${p.name}<span class="text-[10px] text-amber-400">&#127918;${p.games}</span></div>`
+            ).join('');
+        } else ws.classList.add('hidden');
+    }
 
-            const waitSection = document.getElementById('waitingSection');
-            const waitList = document.getElementById('waitingList');
+    // ===== MONEY PAGE =====
+    function renderMoneyPage() {
+        // payer dropdown
+        const sel = document.getElementById('payerSelect');
+        const cur = sel.value;
+        sel.innerHTML = '<option value="">-- เลือกคนที่จ่ายก่อน --</option>' +
+            players.map(p => `<option value="${p.id}" ${p.id===cur?'selected':''}>${p.name}</option>`).join('');
+        renderShuttleList();
+        renderSplitPlayers();
+    }
 
-            if (waiting.length > 0) {
-                waitSection.classList.remove('hidden');
-                document.getElementById('waitCount').innerText = waiting.length;
-                waitList.innerHTML = waiting.map(p => `
-                    <div class="bg-white px-4 py-2 rounded-2xl text-sm font-bold text-amber-900 border border-amber-200 flex items-center gap-2">
-                        ${p.name}
-                        <span class="text-[10px] text-amber-400">🎮${p.games}</span>
-                    </div>
-                `).join('');
-            } else {
-                waitSection.classList.add('hidden');
-            }
+    function renderShuttleList() {
+        const list = document.getElementById('shuttleList');
+        const empty = document.getElementById('shuttleEmpty');
+        const bar = document.getElementById('shuttleSummaryBar');
+
+        if (shuttleEntries.length === 0) {
+            list.innerHTML = '';
+            empty.style.display = 'block';
+            bar.classList.add('hidden');
+            lucide.createIcons(); return;
         }
+        empty.style.display = 'none';
 
-        function adjustGames(id, delta) {
-            const idx = players.findIndex(p => p.id === id);
-            if (idx === -1) return;
-            players[idx].games = Math.max(0, players[idx].games + delta);
-            save();
-        }
+        let totalQty = 0, totalVal = 0;
+        list.innerHTML = shuttleEntries.map(e => {
+            const val = e.qty * e.price;
+            totalQty += e.qty;
+            totalVal += val;
+            return `<div class="shuttle-entry flex flex-wrap items-center gap-2">
+                <select onchange="updateShuttleOwner('${e.id}',this.value)"
+                    class="flex-1 min-w-[120px] px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-emerald-400 focus:outline-none">
+                    <option value="">-- เจ้าของลูก --</option>
+                    ${players.map(p=>`<option value="${p.id}" ${p.id===e.ownerId?'selected':''}>${p.name}</option>`).join('')}
+                    <option value="__pool__" ${e.ownerId==='__pool__'?'selected':''}>🛒 ซื้อกลาง</option>
+                </select>
+                <div class="flex items-center gap-0.5 bg-white border border-slate-200 rounded-xl px-1.5 py-1">
+                    <button onclick="adjShuttle('${e.id}',-1)" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 font-black">&#8722;</button>
+                    <span class="w-6 text-center font-black text-slate-700 text-sm">${e.qty}</span>
+                    <button onclick="adjShuttle('${e.id}',1)" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 font-black">&#43;</button>
+                    <span class="text-[10px] text-slate-400 font-semibold ml-1 mr-0.5">ลูก</span>
+                </div>
+                <div class="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5">
+                    <input type="number" value="${e.price}" min="1"
+                        onchange="updateShuttlePrice('${e.id}',this.value)"
+                        class="w-14 text-center font-black text-emerald-700 text-sm bg-transparent focus:outline-none">
+                    <span class="text-[10px] text-slate-400 font-semibold">฿/ลูก</span>
+                </div>
+                <span class="text-xs text-emerald-600 font-black w-14 text-right">${val.toLocaleString()}฿</span>
+                <button onclick="rmShuttle('${e.id}')" class="text-slate-300 hover:text-red-400 transition-colors"><i data-lucide="x" class="w-4 h-4"></i></button>
+            </div>`;
+        }).join('');
 
-        function clearHistory() {
-            partnerHistory = [];
-            alert('ล้างประวัติคู่หูเรียบร้อย!');
-        }
-
-        function resetAll() {
-            if (confirm('ล้างข้อมูลสมาชิกและจำนวนเกมทั้งหมด?')) {
-                players = [];
-                partnerHistory = [];
-                localStorage.removeItem('badmy_v2_players');
-                location.reload();
-            }
-        }
-
-        renderPlayers();
+        document.getElementById('shuttleTotalText').innerText = `${totalQty} ลูก = ${totalVal.toLocaleString()} ฿`;
+        bar.classList.remove('hidden');
         lucide.createIcons();
-    </script>
+    }
+
+    function addShuttleEntry() {
+        shuttleEntries.push({ id: Math.random().toString(36).substr(2,9), ownerId:'', qty:1, price:20 });
+        renderShuttleList();
+    }
+    function rmShuttle(id) { shuttleEntries = shuttleEntries.filter(e=>e.id!==id); renderShuttleList(); }
+    function updateShuttleOwner(id, val) { const e=shuttleEntries.find(x=>x.id===id); if(e) e.ownerId=val; renderShuttleList(); }
+    function updateShuttlePrice(id, val) { const e=shuttleEntries.find(x=>x.id===id); if(e) e.price=Math.max(1,parseFloat(val)||1); renderShuttleList(); }
+    function adjShuttle(id, d) { const e=shuttleEntries.find(x=>x.id===id); if(e) e.qty=Math.max(1,e.qty+d); renderShuttleList(); }
+
+    function renderSplitPlayers() {
+        const list = document.getElementById('splitPlayerList');
+        const empty = document.getElementById('splitEmpty');
+        if (players.length === 0) { list.innerHTML=''; empty.classList.remove('hidden'); return; }
+        empty.classList.add('hidden');
+        players.forEach(p => { if (splitSelected[p.id]===undefined) splitSelected[p.id]=true; });
+        list.innerHTML = players.map(p => {
+            const on = splitSelected[p.id] !== false;
+            return `<button onclick="toggleSplit('${p.id}')"
+                class="flex items-center gap-2 px-3 py-2.5 rounded-2xl border-2 text-sm font-bold transition-all
+                ${on?'border-emerald-400 bg-emerald-50 text-emerald-800':'border-slate-200 bg-white text-slate-400'}">
+                <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0
+                    ${on?'bg-emerald-400 text-white':'bg-slate-200 text-transparent'}">&#10003;</span>
+                ${p.name}
+            </button>`;
+        }).join('');
+    }
+    function toggleSplit(id) { splitSelected[id]=!splitSelected[id]; renderSplitPlayers(); }
+    function toggleAllSplit(v) { players.forEach(p=>splitSelected[p.id]=v); renderSplitPlayers(); }
+
+    // ===== CALCULATE MONEY =====
+    function calculateMoney() {
+        const payerId = document.getElementById('payerSelect').value;
+        if (!payerId) { alert('เลือกคนที่จ่ายก่อนด้วยนะ'); return; }
+
+        const courtFee = parseFloat(document.getElementById('courtFee').value) || 0;
+        const splitters = players.filter(p => splitSelected[p.id]);
+        if (splitters.length === 0) { alert('เลือกคนร่วมหารอย่างน้อย 1 คน'); return; }
+
+        const totalShuttle = shuttleEntries.reduce((s,e) => s + e.qty * e.price, 0);
+        const totalQty = shuttleEntries.reduce((s,e) => s + e.qty, 0);
+        const total = courtFee + totalShuttle;
+        const share = total / splitters.length;
+
+        // shuttle credit per person (using each entry's own price)
+        const credit = {};
+        shuttleEntries.forEach(e => {
+            if (e.ownerId && e.ownerId !== '__pool__') {
+                credit[e.ownerId] = (credit[e.ownerId]||0) + e.qty * e.price;
+            }
+        });
+
+        const payer = players.find(p => p.id === payerId);
+        const fmt = n => Math.round(n).toLocaleString();
+
+        // payer net = what payer should receive from everyone else
+        // payer paid courtFee cash. Shuttle owners effectively pre-paid their shuttle value.
+        // payer_total_contribution = courtFee + credit[payerId]
+        // payer net receive = payer_total_contribution - share
+        // For others: net_owe = share - credit[id]  (positive=owes payer, negative=payer owes them)
+
+        const payerContrib = courtFee + (credit[payerId]||0);
+        const payerNetReceive = payerContrib - share;
+
+        const res = document.getElementById('moneyResult');
+        res.classList.remove('hidden');
+
+        res.innerHTML = `
+        <!-- Summary card -->
+        <div class="money-card pop-in">
+            <div class="bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-4">
+                <p class="text-emerald-100 text-[10px] font-bold uppercase tracking-widest mb-1">ยอดรวมทั้งหมด</p>
+                <p class="text-white text-3xl font-black">${fmt(total)} <span class="text-lg">฿</span></p>
+                <p class="text-emerald-100 text-xs mt-1">หาร ${splitters.length} คน = คนละ <span class="font-black text-white">${fmt(share)} ฿</span></p>
+            </div>
+            <div class="px-5 py-3 flex flex-wrap gap-x-5 gap-y-1 text-sm border-b border-slate-50">
+                <div><span class="text-slate-400 text-[10px]">ค่าคอร์ท</span><br><span class="font-black text-slate-700">${fmt(courtFee)} ฿</span></div>
+                <div><span class="text-slate-400 text-[10px]">ค่าลูก (${totalQty} ลูก)</span><br><span class="font-black text-slate-700">${fmt(totalShuttle)} ฿</span></div>
+                <div><span class="text-slate-400 text-[10px]">จ่ายล่วงหน้าโดย</span><br><span class="payer-chip">${payer.name}</span></div>
+            </div>
+        </div>
+
+        <!-- Per person breakdown -->
+        <div class="money-card pop-in" style="animation-delay:0.07s">
+            <div class="px-5 py-3 bg-slate-50 border-b border-slate-100">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">ยอดสุทธิแต่ละคน</p>
+            </div>
+            ${splitters.map(p => {
+                const c = credit[p.id]||0;
+                const isPayer = p.id === payerId;
+
+                if (isPayer) {
+                    const receive = Math.round(payerNetReceive);
+                    return `<div class="owes-row">
+                        <div>
+                            <span class="font-black text-slate-800 text-sm">${p.name}</span>
+                            <span class="payer-chip ml-2">จ่ายก่อน</span>
+                            ${c>0?`<span class="credit-chip ml-1">+ลูก ${fmt(c)}฿</span>`:''}
+                            <div class="text-[10px] text-slate-400 mt-0.5">ส่วนตัว ${fmt(share)} ฿</div>
+                        </div>
+                        <div class="text-right">
+                            ${receive>=0
+                                ? `<div class="text-emerald-600 font-black text-base">รับ ${fmt(receive)} ฿</div><div class="text-[10px] text-slate-400">จากทีมก๊วน</div>`
+                                : `<div class="text-blue-500 font-black text-base">คืน ${fmt(Math.abs(receive))} ฿</div><div class="text-[10px] text-slate-400">ให้ทีมก๊วน</div>`
+                            }
+                        </div>
+                    </div>`;
+                }
+
+                // not payer — check if in splitters
+                const net = Math.round(share - c);
+                if (net <= 0) {
+                    return `<div class="owes-row">
+                        <div>
+                            <span class="font-black text-slate-800 text-sm">${p.name}</span>
+                            ${c>0?`<span class="credit-chip ml-2">+ลูก ${fmt(c)}฿</span>`:''}
+                            <div class="text-[10px] text-slate-400 mt-0.5">ส่วนตัว ${fmt(share)} ฿</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-blue-500 font-black text-base">${payer.name} คืน ${fmt(Math.abs(net))} ฿</div>
+                            <div class="text-[10px] text-slate-400">ลูกมากกว่าส่วน</div>
+                        </div>
+                    </div>`;
+                }
+                return `<div class="owes-row">
+                    <div>
+                        <span class="font-black text-slate-800 text-sm">${p.name}</span>
+                        ${c>0?`<span class="credit-chip ml-2">+ลูก ${fmt(c)}฿</span>`:''}
+                        <div class="text-[10px] text-slate-400 mt-0.5">ส่วนตัว ${fmt(share)} ฿</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-rose-500 font-black text-base">จ่าย ${fmt(net)} ฿</div>
+                        <div class="text-[10px] text-slate-400">ให้ ${payer.name}</div>
+                    </div>
+                </div>`;
+            }).join('')}
+        </div>`;
+    }
+
+    // ===== RESET =====
+    function clearHistory() { partnerHistory=[]; alert('ล้างประวัติคู่หูเรียบร้อย!'); }
+    function resetAll() {
+        if (confirm('ล้างข้อมูลสมาชิกและจำนวนเกมทั้งหมด?')) {
+            players=[]; partnerHistory=[]; shuttleEntries=[]; splitSelected={};
+            localStorage.removeItem('badmy_v2_players');
+            location.reload();
+        }
+    }
+
+    renderPlayers();
+    lucide.createIcons();
+</script>
 </body>
 </html>
