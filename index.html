@@ -3,92 +3,172 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Badmy Match Maker - Doubles Edition</title>
+    <title>Bad Match</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&display=swap');
-        body { font-family: 'Kanit', sans-serif; }
-        .player-card { transition: all 0.2s ease; }
+        body { font-family: 'Kanit', sans-serif; background: #f1f5f9; }
+
+        .badge-game {
+            display: inline-flex;
+            align-items: center;
+            background: #e0e7ff;
+            color: #4338ca;
+            border-radius: 99px;
+            padding: 1px 8px;
+            font-size: 11px;
+            font-weight: 700;
+            gap: 3px;
+        }
+        .badge-game.top { background: #fef3c7; color: #b45309; }
+
+        .court-card {
+            background: white;
+            border-radius: 2rem;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+        }
+
+        .team-a { background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%); }
+        .team-b { background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%); }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 18px; width: 18px;
+            border-radius: 50%;
+            background: #4f46e5;
+            cursor: pointer;
+        }
+
+        .btn-main {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            box-shadow: 0 4px 20px rgba(99,102,241,0.35);
+        }
+        .btn-green {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            box-shadow: 0 4px 20px rgba(34,197,94,0.35);
+        }
+
+        @keyframes pop-in {
+            0% { opacity:0; transform: scale(0.92) translateY(8px); }
+            100% { opacity:1; transform: scale(1) translateY(0); }
+        }
+        .pop-in { animation: pop-in 0.25s ease forwards; }
+
+        .player-row { transition: background 0.2s; }
+        .player-row:hover { background: #f8fafc; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900 min-h-screen p-3 sm:p-6">
+<body class="min-h-screen p-3 sm:p-6">
     <div class="max-w-4xl mx-auto">
-        
+
+        <!-- Header -->
         <header class="flex items-center justify-between mb-6 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
             <div>
-                <h1 class="text-2xl font-extrabold text-indigo-600 flex items-center gap-2">🏸 BadmyMatch <span class="text-xs bg-indigo-100 px-2 py-1 rounded-lg">2v2</span></h1>
-                <p class="text-slate-500 text-xs">ระบบจัดคู่แบดมินตันแบบทีม (1 คอร์ท 4 คน)</p>
+                <h1 class="text-2xl font-extrabold text-indigo-600 flex items-center gap-2">
+                    🏸 Bad Match
+                    <span class="text-xs bg-indigo-100 text-indigo-500 px-2 py-1 rounded-lg font-semibold">2v2</span>
+                </h1>
+                <p class="text-slate-400 text-xs">by <span class="text-indigo-400 font-semibold">prem</span> · ระบบจัดคู่แบดมินตันแบบทีม</p>
             </div>
-            <button onclick="resetAll()" class="p-2 text-slate-400 hover:text-red-500 rounded-full transition-all">
+            <button onclick="resetAll()" class="p-2 text-slate-300 hover:text-red-400 rounded-full transition-all" title="รีเซ็ตทั้งหมด">
                 <i data-lucide="rotate-ccw"></i>
             </button>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            <!-- Add Player -->
             <div class="space-y-4">
                 <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
-                    <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-slate-700">
+                    <h2 class="text-base font-bold mb-4 flex items-center gap-2 text-slate-700">
                         <i data-lucide="user-plus" class="text-indigo-500 w-5 h-5"></i> เพิ่มผู้เล่น
                     </h2>
-                    <div class="space-y-4">
-                        <input type="text" id="playerName" placeholder="ชื่อผู้เล่น" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-base">
+                    <div class="space-y-3">
+                        <input type="text" id="playerName" placeholder="ชื่อผู้เล่น"
+                            class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-400 focus:outline-none text-base"
+                            onkeydown="if(event.key==='Enter') addPlayer()">
                         <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200">
-                            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">ระดับฝีมือ (<span id="skillVal">3</span> ดาว)</label>
-                            <input type="range" id="playerSkill" min="1" max="5" value="3" oninput="document.getElementById('skillVal').innerText = this.value" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">
+                                ระดับฝีมือ (<span id="skillVal">3</span> ดาว)
+                            </label>
+                            <input type="range" id="playerSkill" min="1" max="5" value="3"
+                                oninput="document.getElementById('skillVal').innerText = this.value"
+                                class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
                         </div>
-                        <button onclick="addPlayer()" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-md active:scale-95">เพิ่มเข้าก๊วน</button>
+                        <button onclick="addPlayer()" class="btn-main w-full py-3.5 text-white rounded-2xl font-bold active:scale-95 transition-transform">
+                            เพิ่มเข้าก๊วน
+                        </button>
                     </div>
                 </div>
 
                 <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
                     <div class="flex items-center justify-between">
-                        <span class="font-bold text-slate-700 flex items-center gap-2"><i data-lucide="layout-grid" class="text-indigo-500 w-5 h-5"></i> จำนวนคอร์ทที่มี</span>
-                        <input type="number" id="courtCount" value="1" min="1" class="w-16 p-2 text-center border border-slate-200 rounded-xl font-bold text-indigo-600">
+                        <span class="font-bold text-slate-700 flex items-center gap-2 text-sm">
+                            <i data-lucide="layout-grid" class="text-indigo-500 w-4 h-4"></i> จำนวนคอร์ทที่ใช้
+                        </span>
+                        <input type="number" id="courtCount" value="1" min="1"
+                            class="w-16 p-2 text-center border border-slate-200 rounded-xl font-bold text-indigo-600">
                     </div>
                 </div>
             </div>
 
+            <!-- Player List -->
             <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
-                <h2 class="text-lg font-bold mb-4 flex items-center justify-between text-slate-700">
-                    <span>สมาชิกทั้งหมด (<span id="playerCount">0</span>)</span>
+                <h2 class="text-base font-bold mb-1 text-slate-700 flex items-center justify-between">
+                    <span>สมาชิกทั้งหมด (<span id="playerCount">0</span> คน)</span>
+                    <span class="text-[10px] text-slate-400 font-normal">เกม = จำนวนรอบที่เล่น</span>
                 </h2>
-                <div id="playerList" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[250px] overflow-y-auto pr-2"></div>
+                <div id="playerList" class="divide-y divide-slate-50 max-h-[280px] overflow-y-auto mt-3"></div>
             </div>
         </div>
 
-        <div class="mt-8 space-y-6">
-            <div class="flex gap-3">
-                <button onclick="generateMatches()" class="flex-[2] py-5 bg-emerald-500 text-white rounded-3xl font-black text-xl shadow-lg active:scale-95 flex items-center justify-center gap-2">สุ่มทีมแข่งขัน!</button>
-                <button onclick="clearHistory()" title="ล้างประวัติคู่ซ้ำ" class="flex-1 py-5 bg-white border border-slate-200 rounded-3xl text-slate-500 font-bold active:scale-95 flex items-center justify-center gap-2"><i data-lucide="history"></i></button>
-            </div>
+        <!-- Action Buttons -->
+        <div class="mt-6 flex gap-3">
+            <button onclick="generateMatches()" class="btn-green flex-[3] py-5 text-white rounded-3xl font-black text-xl active:scale-95 transition-transform flex items-center justify-center gap-2">
+                <i data-lucide="shuffle" class="w-6 h-6"></i> สุ่มทีมแข่ง!
+            </button>
+            <button onclick="clearHistory()" title="ล้างประวัติคู่ซ้ำ"
+                class="flex-1 py-5 bg-white border border-slate-200 text-slate-500 rounded-3xl font-bold active:scale-95 transition-transform flex items-center justify-center gap-2">
+                <i data-lucide="history" class="w-5 h-5"></i>
+            </button>
+        </div>
 
-            <div id="results" class="hidden space-y-4">
-                <h2 class="text-xl font-black text-slate-800 underline decoration-indigo-300 underline-offset-8">ตารางคอร์ทที่จัด</h2>
-                <div id="matchGrid" class="grid grid-cols-1 gap-4"></div>
-                
-                <div id="waitingSection" class="hidden bg-amber-50 p-5 rounded-[2rem] border border-amber-100 shadow-inner">
-                    <h3 class="text-amber-700 font-black text-sm mb-3 uppercase tracking-wider">⏳ พักรอ / บาย (<span id="waitCount">0</span> คน)</h3>
-                    <div id="waitingList" class="flex flex-wrap gap-2"></div>
-                </div>
+        <!-- Results -->
+        <div id="results" class="hidden mt-6 space-y-4">
+            <h2 class="text-xl font-black text-slate-800">ตารางรอบนี้ 🏸</h2>
+            <div id="matchGrid" class="grid grid-cols-1 gap-4"></div>
+
+            <div id="waitingSection" class="hidden bg-amber-50 p-5 rounded-[2rem] border border-amber-100">
+                <h3 class="text-amber-700 font-black text-sm mb-3">⏳ พักรอ / บาย (<span id="waitCount">0</span> คน)</h3>
+                <div id="waitingList" class="flex flex-wrap gap-2"></div>
             </div>
         </div>
+
     </div>
 
     <script>
-        let players = JSON.parse(localStorage.getItem('badmy_players')) || [];
-        let partnerHistory = []; // เก็บ "ID1-ID2" ของคนที่เคยเป็นคู่หูกัน
+        let players = JSON.parse(localStorage.getItem('badmy_v2_players')) || [];
+        let partnerHistory = [];
 
         function save() {
-            localStorage.setItem('badmy_players', JSON.stringify(players));
+            localStorage.setItem('badmy_v2_players', JSON.stringify(players));
             renderPlayers();
         }
 
         function addPlayer() {
             const nameInput = document.getElementById('playerName');
             const skill = parseInt(document.getElementById('playerSkill').value);
-            if (!nameInput.value.trim()) return;
-            players.push({ id: Math.random().toString(36).substr(2, 9), name: nameInput.value.trim(), skill });
+            const name = nameInput.value.trim();
+            if (!name) return;
+            players.push({
+                id: Math.random().toString(36).substr(2, 9),
+                name,
+                skill,
+                games: 0  // ← นับจำนวนเกมที่เล่นแล้ว
+            });
             nameInput.value = '';
             save();
         }
@@ -101,50 +181,86 @@
         function renderPlayers() {
             const list = document.getElementById('playerList');
             document.getElementById('playerCount').innerText = players.length;
-            list.innerHTML = players.map(p => `
-                <div class="flex items-center justify-between bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                    <div class="text-sm font-bold text-slate-700">${p.name} <span class="text-indigo-400 font-normal">⭐${p.skill}</span></div>
-                    <button onclick="removePlayer('${p.id}')" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                </div>
-            `).join('');
+
+            if (players.length === 0) {
+                list.innerHTML = `<p class="text-slate-300 text-sm text-center py-6">ยังไม่มีสมาชิก</p>`;
+                lucide.createIcons();
+                return;
+            }
+
+            // หาค่า max games เพื่อไฮไลต์
+            const maxGames = Math.max(...players.map(p => p.games));
+
+            list.innerHTML = players.map(p => {
+                const isTop = p.games === maxGames && maxGames > 0;
+                return `
+                <div class="player-row flex items-center justify-between py-2.5 px-2 rounded-xl">
+                    <div class="flex items-center gap-2">
+                        <div class="text-sm font-bold text-slate-700">${p.name}</div>
+                        <span class="text-indigo-300 text-xs">⭐${p.skill}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="badge-game ${isTop ? 'top' : ''}">
+                            🎮 ${p.games} เกม
+                        </span>
+                        <button onclick="removePlayer('${p.id}')" class="text-slate-200 hover:text-red-400 transition-colors ml-1">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>`;
+            }).join('');
             lucide.createIcons();
         }
 
+        // ===== Core: Fair Rotation =====
         function generateMatches() {
             if (players.length < 4) {
-                alert("ต้องมีผู้เล่นอย่างน้อย 4 คนสำหรับเล่นคู่ (2v2)");
+                alert('ต้องมีผู้เล่นอย่างน้อย 4 คนสำหรับเล่นคู่ (2v2)');
                 return;
             }
 
             const courtCount = parseInt(document.getElementById('courtCount').value);
-            // สุ่มลำดับผู้เล่น (Shuffle)
-            let pool = [...players].sort(() => Math.random() - 0.5);
-            
+            const needed = courtCount * 4;
+
+            // เรียงผู้เล่นตามจำนวนเกมที่เล่น (น้อย → มาก) แล้ว shuffle คนที่มีเกมเท่ากัน
+            let sorted = [...players].sort((a, b) => {
+                if (a.games !== b.games) return a.games - b.games;
+                return Math.random() - 0.5; // shuffle คนที่เกมเท่ากัน
+            });
+
+            // เอาคน needed คนแรก (เล่นน้อยสุด) ลงสนาม ส่วนที่เหลือพัก
+            let playing = sorted.slice(0, Math.min(needed, sorted.length));
+            let waiting = sorted.slice(playing.length);
+
+            // ถ้าคนเล่นไม่ครบ 4 ต่อคอร์ท ตัดคอร์ทที่ไม่มีคนลงไป
+            const actualCourts = Math.floor(playing.length / 4);
+            waiting = [...waiting, ...playing.slice(actualCourts * 4)];
+            playing = playing.slice(0, actualCourts * 4);
+
             const matches = [];
 
-            for (let c = 0; c < courtCount; c++) {
-                if (pool.length < 4) break;
+            for (let c = 0; c < actualCourts; c++) {
+                let group = playing.slice(c * 4, c * 4 + 4);
+                let best = splitIntoTeams(group);
 
-                // ดึง 4 คนออกมาสำหรับคอร์ทนี้
-                let group = pool.splice(0, 4);
-                
-                // Logic หาคู่หูที่ดีที่สุด (พยายามไม่ให้คู่กับคนเดิม)
-                // ทดลอง 3 รูปแบบการจับคู่ใน 4 คนนี้ (1+2 vs 3+4, 1+3 vs 2+4, 1+4 vs 2+3)
-                // เลือกรูปแบบที่มีประวัติการคู่กันน้อยที่สุด
-                let bestPairing = splitIntoTeams(group);
-                
                 matches.push({
                     court: c + 1,
-                    teamA: [bestPairing.t1p1, bestPairing.t1p2],
-                    teamB: [bestPairing.t2p1, bestPairing.t2p2]
+                    teamA: [best.t1p1, best.t1p2],
+                    teamB: [best.t2p1, best.t2p2]
                 });
 
-                // บันทึกประวัติคู่หู (Partner)
-                partnerHistory.push(getPairKey(bestPairing.t1p1.id, bestPairing.t1p2.id));
-                partnerHistory.push(getPairKey(bestPairing.t2p1.id, bestPairing.t2p2.id));
+                // เพิ่มจำนวนเกมให้ผู้เล่น 4 คนนี้
+                [best.t1p1, best.t1p2, best.t2p1, best.t2p2].forEach(p => {
+                    const idx = players.findIndex(x => x.id === p.id);
+                    if (idx !== -1) players[idx].games++;
+                });
+
+                partnerHistory.push(getPairKey(best.t1p1.id, best.t1p2.id));
+                partnerHistory.push(getPairKey(best.t2p1.id, best.t2p2.id));
             }
 
-            display(matches, pool);
+            save(); // บันทึกจำนวนเกมใหม่
+            display(matches, waiting);
         }
 
         function getPairKey(id1, id2) {
@@ -152,11 +268,6 @@
         }
 
         function splitIntoTeams(g) {
-            // เพื่อความง่าย: เราจะสลับตำแหน่งในกลุ่ม 4 คนให้ได้คู่ที่ใหม่ที่สุด
-            // รูปแบบที่ 1: (0,1) vs (2,3)
-            // รูปแบบที่ 2: (0,2) vs (1,3)
-            // รูปแบบที่ 3: (0,3) vs (1,2)
-            
             const options = [
                 { t1: [g[0], g[1]], t2: [g[2], g[3]], score: 0 },
                 { t1: [g[0], g[2]], t2: [g[1], g[3]], score: 0 },
@@ -168,9 +279,7 @@
                 if (partnerHistory.includes(getPairKey(opt.t2[0].id, opt.t2[1].id))) opt.score++;
             });
 
-            // เลือกตัวเลือกที่มี Score ต่ำสุด (เจอกันซ้ำน้อยสุด)
             const best = options.sort((a, b) => a.score - b.score)[0];
-
             return {
                 t1p1: best.t1[0], t1p2: best.t1[1],
                 t2p1: best.t2[0], t2p2: best.t2[1]
@@ -180,38 +289,51 @@
         function display(matches, waiting) {
             const res = document.getElementById('results');
             const grid = document.getElementById('matchGrid');
-            const waitSection = document.getElementById('waitingSection');
-            const waitList = document.getElementById('waitingList');
-
             res.classList.remove('hidden');
-            grid.innerHTML = matches.map(m => `
-                <div class="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100 relative overflow-hidden group">
-                    <div class="absolute top-0 right-0 bg-indigo-600 text-white px-4 py-1 rounded-bl-2xl text-[10px] font-bold">COURT ${m.court}</div>
-                    
-                    <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
-                        <div class="flex-1 text-center sm:text-right">
-                            <div class="text-indigo-600 text-[10px] font-bold uppercase mb-1">Team A</div>
-                            <div class="font-black text-slate-800 leading-tight">${m.teamA[0].name} <span class="text-xs font-normal">⭐${m.teamA[0].skill}</span></div>
-                            <div class="font-black text-slate-800 leading-tight">${m.teamA[1].name} <span class="text-xs font-normal">⭐${m.teamA[1].skill}</span></div>
+
+            grid.innerHTML = matches.map((m, i) => `
+                <div class="court-card pop-in" style="animation-delay: ${i * 0.07}s">
+                    <div class="flex items-center justify-between px-5 pt-4 pb-2">
+                        <span class="text-[11px] font-black text-slate-400 uppercase tracking-widest">COURT ${m.court}</span>
+                    </div>
+                    <div class="flex flex-col sm:flex-row items-stretch gap-0">
+                        <div class="team-a flex-1 px-5 py-4 text-center rounded-b-3xl sm:rounded-none sm:rounded-bl-3xl">
+                            <div class="text-indigo-500 text-[10px] font-black uppercase tracking-wider mb-2">Team A</div>
+                            ${m.teamA.map(p => `
+                                <div class="font-black text-slate-800 text-base leading-tight">${p.name}
+                                    <span class="text-xs font-normal text-slate-400">⭐${p.skill}</span>
+                                </div>
+                                <div class="text-[10px] text-indigo-400 font-semibold mb-1">🎮 ${p.games + 1} เกม</div>
+                            `).join('')}
                         </div>
 
-                        <div class="text-slate-300 font-black italic text-xl">VS</div>
+                        <div class="flex items-center justify-center px-3 py-2 sm:py-0">
+                            <span class="text-slate-300 font-black text-sm">VS</span>
+                        </div>
 
-                        <div class="flex-1 text-center sm:text-left">
-                            <div class="text-rose-500 text-[10px] font-bold uppercase mb-1">Team B</div>
-                            <div class="font-black text-slate-800 leading-tight">${m.teamB[0].name} <span class="text-xs font-normal">⭐${m.teamB[0].skill}</span></div>
-                            <div class="font-black text-slate-800 leading-tight">${m.teamB[1].name} <span class="text-xs font-normal">⭐${m.teamB[1].skill}</span></div>
+                        <div class="team-b flex-1 px-5 py-4 text-center rounded-b-3xl sm:rounded-none sm:rounded-br-3xl">
+                            <div class="text-rose-500 text-[10px] font-black uppercase tracking-wider mb-2">Team B</div>
+                            ${m.teamB.map(p => `
+                                <div class="font-black text-slate-800 text-base leading-tight">${p.name}
+                                    <span class="text-xs font-normal text-slate-400">⭐${p.skill}</span>
+                                </div>
+                                <div class="text-[10px] text-rose-400 font-semibold mb-1">🎮 ${p.games + 1} เกม</div>
+                            `).join('')}
                         </div>
                     </div>
                 </div>
             `).join('');
 
+            const waitSection = document.getElementById('waitingSection');
+            const waitList = document.getElementById('waitingList');
+
             if (waiting.length > 0) {
                 waitSection.classList.remove('hidden');
                 document.getElementById('waitCount').innerText = waiting.length;
                 waitList.innerHTML = waiting.map(p => `
-                    <div class="bg-white px-4 py-2 rounded-2xl text-sm font-bold text-amber-900 shadow-sm border border-amber-200">
-                        ${p.name} <span class="text-[10px] font-normal opacity-50">⭐${p.skill}</span>
+                    <div class="bg-white px-4 py-2 rounded-2xl text-sm font-bold text-amber-900 border border-amber-200 flex items-center gap-2">
+                        ${p.name}
+                        <span class="text-[10px] text-amber-400">🎮${p.games}</span>
                     </div>
                 `).join('');
             } else {
@@ -219,8 +341,19 @@
             }
         }
 
-        function clearHistory() { partnerHistory = []; alert('ล้างประวัติคู่หูเรียบร้อย เริ่มต้นใหม่ได้เลย!'); }
-        function resetAll() { if(confirm('ล้างข้อมูลสมาชิกทั้งหมด?')) { players = []; partnerHistory = []; save(); location.reload(); } }
+        function clearHistory() {
+            partnerHistory = [];
+            alert('ล้างประวัติคู่หูเรียบร้อย!');
+        }
+
+        function resetAll() {
+            if (confirm('ล้างข้อมูลสมาชิกและจำนวนเกมทั้งหมด?')) {
+                players = [];
+                partnerHistory = [];
+                localStorage.removeItem('badmy_v2_players');
+                location.reload();
+            }
+        }
 
         renderPlayers();
         lucide.createIcons();
