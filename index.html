@@ -197,12 +197,18 @@
                 <div class="player-row flex items-center justify-between py-2.5 px-2 rounded-xl">
                     <div class="flex items-center gap-2">
                         <div class="text-sm font-bold text-slate-700">${p.name}</div>
-                        <span class="text-indigo-300 text-xs">⭐${p.skill}</span>
+                        <span class="text-indigo-300 text-xs">&#11088;${p.skill}</span>
                     </div>
                     <div class="flex items-center gap-2">
-                        <span class="badge-game ${isTop ? 'top' : ''}">
-                            🎮 ${p.games} เกม
+                        <button onclick="adjustGames('${p.id}', -1)"
+                            class="w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 hover:bg-red-100 text-slate-400 hover:text-red-500 font-bold text-sm transition-colors"
+                            style="flex-shrink:0;line-height:1">&#8722;</button>
+                        <span class="badge-game ${isTop ? 'top' : ''}" style="min-width:62px;justify-content:center">
+                            &#127918; ${p.games} เกม
                         </span>
+                        <button onclick="adjustGames('${p.id}', 1)"
+                            class="w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 hover:bg-indigo-100 text-slate-400 hover:text-indigo-500 font-bold text-sm transition-colors"
+                            style="flex-shrink:0;line-height:1">&#43;</button>
                         <button onclick="removePlayer('${p.id}')" class="text-slate-200 hover:text-red-400 transition-colors ml-1">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                         </button>
@@ -303,7 +309,7 @@
                                 <div class="font-black text-slate-800 text-base leading-tight">${p.name}
                                     <span class="text-xs font-normal text-slate-400">⭐${p.skill}</span>
                                 </div>
-                                <div class="text-[10px] text-indigo-400 font-semibold mb-1">🎮 ${p.games + 1} เกม</div>
+                                <div class="text-[10px] text-indigo-400 font-semibold mb-1">🎮 ${p.games} เกม</div>
                             `).join('')}
                         </div>
 
@@ -317,7 +323,7 @@
                                 <div class="font-black text-slate-800 text-base leading-tight">${p.name}
                                     <span class="text-xs font-normal text-slate-400">⭐${p.skill}</span>
                                 </div>
-                                <div class="text-[10px] text-rose-400 font-semibold mb-1">🎮 ${p.games + 1} เกม</div>
+                                <div class="text-[10px] text-rose-400 font-semibold mb-1">🎮 ${p.games} เกม</div>
                             `).join('')}
                         </div>
                     </div>
@@ -339,6 +345,13 @@
             } else {
                 waitSection.classList.add('hidden');
             }
+        }
+
+        function adjustGames(id, delta) {
+            const idx = players.findIndex(p => p.id === id);
+            if (idx === -1) return;
+            players[idx].games = Math.max(0, players[idx].games + delta);
+            save();
         }
 
         function clearHistory() {
