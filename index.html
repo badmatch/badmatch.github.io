@@ -74,7 +74,7 @@
             <h1 class="text-2xl font-extrabold text-indigo-600 flex items-center gap-2">
                 🏸 Bad Match <span class="text-xs bg-indigo-100 text-indigo-500 px-2 py-1 rounded-lg font-semibold">2v2</span>
             </h1>
-            <p class="text-slate-400 text-xs">by <span class="text-indigo-400 font-semibold">pnvprem</span> · ระบบจัดคู่แบดมินตันแบบทีม</p>
+            <p class="text-slate-400 text-xs">by <span class="text-indigo-400 font-semibold">prem</span> · ระบบจัดคู่แบดมินตันแบบทีม</p>
         </div>
         <button onclick="resetAll()" class="p-2 text-slate-300 hover:text-red-400 rounded-full transition-all"><i data-lucide="rotate-ccw"></i></button>
     </header>
@@ -365,13 +365,9 @@ function tryFillCourt(court) {
     court.status = 'playing';
     court.result = null;
 
-    group.forEach(p => {
-        const idx = players.findIndex(x=>x.id===p.id);
-        if (idx!==-1) players[idx].games++;
-    });
+    // ไม่นับ games ที่นี่ — นับเมื่อจบเกมจริงใน finishCourt เท่านั้น
     partnerHistory.push(pk(best.t1p1.id, best.t1p2.id));
     partnerHistory.push(pk(best.t2p1.id, best.t2p2.id));
-    save();
     return true;
 }
 
@@ -402,8 +398,9 @@ function finishCourt(courtId) {
     if (!court) return;
     if (!court.result) { showToast('เลือกผลการแข่งก่อนนะ 👆'); return; }
 
-    // Record stats
+    // Record stats + games played
     const {teamA,teamB,result} = court;
+    [...teamA,...teamB].forEach(p=>{ const x=players.find(x=>x.id===p.id); if(x)x.games++; });
     if (result==='A') {
         teamA.forEach(p=>{ const x=players.find(x=>x.id===p.id); if(x)x.wins++; });
         teamB.forEach(p=>{ const x=players.find(x=>x.id===p.id); if(x)x.losses++; });
