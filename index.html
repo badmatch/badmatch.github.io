@@ -411,15 +411,22 @@ function initRotationMode() {
     
     // โหลดทีมลงสนามเท่าที่คอร์ทว่าง
     courts.forEach(c => {
-        if(teamQueue.length >= 2) {
-            let tA = fixedTeams.find(t=>t.id===teamQueue.shift());
-            let tB = fixedTeams.find(t=>t.id===teamQueue.shift());
-            c.status = 'playing'; 
-            c.teamA = [tA.p1, tA.p2]; c.teamB = [tB.p1, tB.p2];
-            c.teamA_id = tA.id; c.teamB_id = tB.id; 
-            c.result = null;
-        }
-    });
+    if(teamQueue.length >= 2) {
+        // ดึงคิวออกมาก่อน (แก้ไข Bug ตรงนี้)
+        let idA = teamQueue.shift();
+        let idB = teamQueue.shift();
+        
+        let tA = fixedTeams.find(t => t.id === idA);
+        let tB = fixedTeams.find(t => t.id === idB);
+        
+        c.status = 'playing';
+        c.teamA = [tA.p1, tA.p2]; 
+        c.teamB = [tB.p1, tB.p2];
+        c.teamA_id = tA.id; 
+        c.teamB_id = tB.id;
+        c.result = null;
+    }
+});
 }
 
 function handleMode2Finish(court) {
@@ -457,19 +464,44 @@ function handleMode2Finish(court) {
 function fillMode2Court(court, needed, staySide) {
     if (needed === 2) {
         if (teamQueue.length >= 2) {
-            let nA = fixedTeams.find(t=>t.id===teamQueue.shift());
-            let nB = fixedTeams.find(t=>t.id===teamQueue.shift());
-            court.teamA = [nA.p1, nA.p2]; court.teamB = [nB.p1, nB.p2];
-            court.teamA_id = nA.id; court.teamB_id = nB.id;
-            court.result = null; court.status = 'playing';
-        } else { court.status = 'idle'; court.teamA = []; court.teamB = []; }
+            // ดึงคิวออกมาก่อน
+            let idA = teamQueue.shift();
+            let idB = teamQueue.shift();
+            
+            let nA = fixedTeams.find(t => t.id === idA);
+            let nB = fixedTeams.find(t => t.id === idB);
+            
+            court.teamA = [nA.p1, nA.p2]; 
+            court.teamB = [nB.p1, nB.p2];
+            court.teamA_id = nA.id; 
+            court.teamB_id = nB.id;
+            court.result = null; 
+            court.status = 'playing';
+        } else { 
+            court.status = 'idle'; 
+            court.teamA = []; 
+            court.teamB = []; 
+        }
     } else if (needed === 1) {
         if (teamQueue.length >= 1) {
-            let challenger = fixedTeams.find(t=>t.id===teamQueue.shift());
-            if (staySide === 'A') { court.teamB = [challenger.p1, challenger.p2]; court.teamB_id = challenger.id; } 
-            else { court.teamA = [challenger.p1, challenger.p2]; court.teamA_id = challenger.id; }
-            court.result = null; court.status = 'playing';
-        } else { court.status = 'idle'; court.teamA = []; court.teamB = []; }
+            // ดึงคิวออกมาก่อน
+            let idChallenger = teamQueue.shift();
+            let challenger = fixedTeams.find(t => t.id === idChallenger);
+            
+            if (staySide === 'A') { 
+                court.teamB = [challenger.p1, challenger.p2]; 
+                court.teamB_id = challenger.id; 
+            } else { 
+                court.teamA = [challenger.p1, challenger.p2]; 
+                court.teamA_id = challenger.id; 
+            }
+            court.result = null; 
+            court.status = 'playing';
+        } else { 
+            court.status = 'idle'; 
+            court.teamA = []; 
+            court.teamB = []; 
+        }
     }
 }
 
