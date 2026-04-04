@@ -386,7 +386,82 @@ function tryFillCourtMode1(court) {
 // ================================================================
 // MODE 2: ROTATION (FIXED TEAMS + KING OF COURT)
 // ================================================================
-function initRotationMode() {
+function initRotationMode(isReshuffle = false) {
+    let pool = [...players];
+    // ถ้าจำนวนผู้เล่นคี่ ให้ยืมคนที่เล่นน้อยสุดมา 1 คน
+    if (pool.length % 2 !== 0) {
+        let p = pool.sort((a,b)=>a.games-b.games)[0];
+        pool.push({...p, id: p.id+'_ghost', name: p.name+' (ยืม)'});
+    }
+    
+    // จับคู่ใหม่โดยพยายามหลีกเลี่ยงคู่เดิม (อิงจาก partnerHistory)
+    let newTeams = [];
+    let unassigned = [...pool].sort(()=>Math.random()-0.5); // สุ่มลำดับก่อน
+    
+    while(unassigned.length >= 2) {
+        let p1 = unassigned.shift();
+        let bestP2Idx = 0;
+        let minHist = Infinity;
+
+        // หาคู่ที่ดีที่สุด (เคยคู่กันน้อยที่สุด)
+        for (let i = 0; i < unassigned.length; i++) {
+            let p2 = unassigned[i];
+            let real1 = p1.id.replace('_ghost','');
+            let real2 = p2.id.replace('_ghost','');
+            let pairKey = [real1, real2].sort().join('-');
+            
+            let hist = partnerHistory.filter(h => h === pairKey).length;
+            if (hist < minHist) {
+                minHist = hist;
+                bestP2Idx = i;
+            }
+        }
+        
+        let p2 = unassigned.splice(bestP2Idx, 1)[0];
+        newTeams.push([p1, p2]);
+        
+        // บันทึกลงประวัติล่วงหน้าเลยว่าคู่นี้เจอกันแล้วรอบนี้
+        let real1 = p1.id.replace('_ghost','');
+        let real2 = p2.id.replace('_ghost','');
+        partnerHistory.push([real1, real2].sort().join('-'));
+    }
+    
+    fixedTeams = newTeams.map((pair, idx) => ({
+        id: 'T' + (Math.random().toString(36).substr(2,9)), 
+        label: 'ทีม ' + (idx + 1),
+        p1: pair[0], p2: pair[1],
+        streak: 0, played: []
+    }));
+    
+    teamQueue = fixedTeams.map(t => t.id);
+    
+    // รีเซ็ตคอร์ททั้งหมดก่อนปล่อยทีมลง
+    courts.forEach(c => {
+        c.status = 'idle';
+        c.teamA = []; c.teamB = [];
+        c.teamA_id = null; c.teamB_id = null;
+        c.result = null;
+    });
+    
+    // โหลดทีมลงสนามเท่าที่คอร์ทว่าง
+    courts.forEach(c => {
+        if(teamQueue.length >= 2) {
+            let idA = teamQueue.shift();
+            let idB = teamQueue.shift();
+            let tA = fixedTeams.find(t => t.id === idA);
+            let tB = fixedTeams.find(t => t.id === idB);
+            c.status = 'playing'; 
+            c.teamA = [tA.p1, tA.p2]; c.teamB = [tB.p1, tB.p2];
+            c.teamA_id = tA.id; c.teamB_id = tB.id; 
+            c.result = null;
+        }
+    });
+
+    // ถ้านี่คือการสลับรอบใหม่ ให้รีเฟรชหน้าจอ
+    if (isReshuffle) {
+        renderSession();
+    }
+}
     let pool = [...players];
     // ถ้าจำนวนผู้เล่นคี่ ให้ยืมคนที่เล่นน้อยสุดมา 1 คน
     if (pool.length % 2 !== 0) {
