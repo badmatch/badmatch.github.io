@@ -114,12 +114,23 @@
                 <span class="text-2xl">&#128279;</span>
                 <h2 class="font-black text-slate-800 text-base">เข้าร่วมห้อง (Guest)</h2>
             </div>
-            <p class="text-xs text-slate-400 mb-4 ml-8">กรอกรหัส 6 หลักเพื่อดูสดแบบ Real-time</p>
-            <input type="text" id="joinCodeInput" maxlength="6" placeholder="XXXXXX"
-                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-center text-2xl font-black text-slate-700 focus:ring-2 focus:ring-emerald-400 focus:outline-none tracking-[0.4em] uppercase mb-3"
-                oninput="this.value=this.value.toUpperCase()"
+            <p class="text-xs text-slate-400 mb-4 ml-8">กรอกรหัสและชื่อเพื่อดูสดหรือร่วมเล่น</p>
+            
+            <!-- ปรับขนาดฟอนต์เป็น text-xl ตรงนี้ตามที่ต้องการ -->
+            <input type="text" id="joinCodeInput" maxlength="6" placeholder="รหัสห้อง XXXXXX"
+                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-center text-xl font-black text-slate-700 focus:ring-2 focus:ring-emerald-400 focus:outline-none tracking-[0.4em] uppercase mb-3"
+                oninput="this.value=this.value.toUpperCase()">
+
+            <input type="text" id="joinNameInput" placeholder="ชื่อของคุณ (เว้นว่างถ้ามาดูเฉยๆ)"
+                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-center text-base font-bold text-slate-700 focus:ring-2 focus:ring-emerald-400 focus:outline-none mb-3"
                 onkeydown="if(event.key==='Enter') joinRoom()">
-            <button onclick="joinRoom()"
+
+            <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200 mb-4">
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block text-center">ระดับฝีมือ (<span id="joinSkillVal">3</span> ดาว)</label>
+                <input type="range" id="joinSkillInput" min="1" max="5" value="3" oninput="document.getElementById('joinSkillVal').innerText=this.value" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+            </div>
+
+            <button onclick="joinRoom()" id="joinRoomBtn"
                 class="btn-emerald w-full py-4 text-white rounded-2xl font-black text-base active:scale-95 transition-transform flex items-center justify-center gap-2 cursor-pointer">
                 &#128640; เข้าร่วม
             </button>
@@ -303,7 +314,7 @@
 // SUPABASE CONFIG
 // ================================================================
 const SUPABASE_URL  = 'https://rcfbricvpkkjbclesqjf.supabase.co';
-const SUPABASE_KEY  = 'sb_publishable_783t76z0IbRtKj1s8I-UKQ_Nud_Q5Kw';
+const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjZmJyaWN2cGtramJjbGVzcWpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NDk4NDMsImV4cCI6MjA5MTEyNTg0M30.G4uRu3J25O04pACDkRxhqMCYiYnzdCkDAkaYFB8vhYw';
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -334,6 +345,10 @@ let teamQueue      = [];
 let mode2NeedsReset = false;
 let koState = { round: 1, matches: [], winners: [], losers: [] };
 let editingCourtId = null;
+
+// ตัวแปรเก็บข้อมูลชื่อ Guest ชั่วคราวเพื่อส่งให้ Host
+let pendingGuestName = null;
+let pendingGuestSkill = 3;
 
 // ================================================================
 // STATE HELPERS
@@ -408,58 +423,103 @@ async function recordMatch(courtId, teamA, teamB, result, mode) {
 }
 
 // ================================================================
-// ROOM MANAGEMENT
+// ROOM MANAGEMENT (มีระบบ Fail-safe ป้องกันปุ่มค้าง)
 // ================================================================
 async function createRoom() {
     const btn = document.getElementById('createRoomBtn');
-    btn.innerHTML = '&#9203; กำลังสร้าง...';
-    btn.disabled = true;
+    try {
+        // เปลี่ยนสถานะปุ่ม
+        btn.innerHTML = '&#9203; กำลังสร้าง...';
+        btn.disabled = true;
 
-    const code  = Math.random().toString(36).substr(2, 6).toUpperCase();
-    const token = Math.random().toString(36).substr(2, 16) + Math.random().toString(36).substr(2, 16);
+        const code  = Math.random().toString(36).substr(2, 6).toUpperCase();
+        const token = Math.random().toString(36).substr(2, 16) + Math.random().toString(36).substr(2, 16);
 
-    const { data, error } = await sb.from('rooms').insert({
-        code, host_token: token, session_state: {}
-    }).select().single();
+        // ดึงข้อมูลโดยใช้ select() แทน select().single() เพื่อหลีกเลี่ยง PGRST116 เวลาติด RLS
+        const response = await sb.from('rooms').insert({
+            code, host_token: token, session_state: {}
+        }).select();
 
-    if (error || !data) {
-        showToast('&#10060; สร้างห้องไม่ได้: ' + (error?.message || 'Unknown'));
-        btn.innerHTML = '&#10024; สร้างห้อง';
-        btn.disabled = false;
-        return;
+        if (response.error) throw new Error(response.error.message);
+        
+        // เช็กเคสสร้างห้องลงฐานข้อมูลสำเร็จ แต่แอปดึงข้อมูลกลับมาไม่ได้ (ติด RLS)
+        if (!response.data || response.data.length === 0) {
+            throw new Error("ห้องสร้างสำเร็จ แต่ฐานข้อมูลปฏิเสธการเข้าถึง (โปรดกลับไปรันคำสั่ง 'DISABLE ROW LEVEL SECURITY' ใน SQL Editor ของ Supabase อีกครั้ง)");
+        }
+
+        roomId = response.data[0].id; 
+        roomCode = response.data[0].code; 
+        hostToken = token; 
+        isHost = true;
+        sessionStorage.setItem('bm_room', JSON.stringify({ roomId, roomCode, hostToken, isHost }));
+        
+        // โหลดเสร็จสิ้น เข้าสู่แอป
+        enterApp();
+
+    } catch (e) {
+        console.error("Create Room Error:", e);
+        // แจ้งเตือนข้อผิดพลาดชัดเจนบนหน้าจอ
+        alert("❌ เกิดข้อผิดพลาด:\n\n" + e.message);
+    } finally {
+        // *สำคัญ* บล็อกนี้จะทำงานเสมอ ไม่ว่าจะสำเร็จหรือพัง เพื่อคืนค่าปุ่มให้กลับมากดใหม่ได้
+        if (btn) {
+            btn.innerHTML = '&#10024; สร้างห้อง';
+            btn.disabled = false;
+        }
     }
-
-    roomId = data.id; roomCode = data.code; hostToken = token; isHost = true;
-    sessionStorage.setItem('bm_room', JSON.stringify({ roomId, roomCode, hostToken, isHost }));
-    enterApp();
 }
 
 async function joinRoom() {
-    if (!sb) sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    const code = (document.getElementById('joinCodeInput').value || '').toUpperCase().trim();
-    if (code.length !== 6) { showToast('กรอกรหัส 6 หลักด้วยนะ 😉'); return; }
+    const btn = document.getElementById('joinRoomBtn');
+    try {
+        const codeInput = document.getElementById('joinCodeInput');
+        const code = (codeInput.value || '').toUpperCase().trim();
+        const name = (document.getElementById('joinNameInput').value || '').trim();
+        const skill = parseInt(document.getElementById('joinSkillInput').value || 3);
 
-    console.log("🔍 กำลังค้นหาห้อง:", code);
-    const { data, error } = await sb.from('rooms')
-        .select('*').eq('code', code).eq('status', 'active').maybeSingle();
+        if (code.length !== 6) { 
+            showToast('กรอกรหัส 6 หลักด้วยนะ 😉'); 
+            return; 
+        }
+
+        if (btn) {
+            btn.innerHTML = '&#9203; กำลังค้นหา...';
+            btn.disabled = true;
+        }
         
-    console.log("📊 ผลลัพธ์จาก Database:", { data, error });
+        const response = await sb.from('rooms')
+            .select('*').eq('code', code).eq('status', 'active');
+            
+        if (response.error) throw new Error(response.error.message);
+        
+        // เช็กเคสค้นหาไม่เจอ หรือติด RLS
+        if (!response.data || response.data.length === 0) { 
+            throw new Error("ไม่พบห้องนี้ หรือระบบฐานข้อมูลกำลังบล็อกการค้นหา (ติด RLS)");
+        }
 
-    if (error) {
-        console.error("Join Error:", error);
-        showToast('❌ ข้อผิดพลาด: ' + error.message);
-        return;
-    }
-    if (!data) { 
-        console.warn("⚠️ หากมั่นใจว่ารหัสถูก แสดงว่าระบบบล็อกการอ่านข้อมูล (ติด RLS)");
-        showToast('❌ ไม่พบห้อง หรือห้องปิดไปแล้ว'); 
-        return; 
-    }
+        roomId = response.data[0].id; 
+        roomCode = response.data[0].code; 
+        hostToken = null; 
+        isHost = false;
+        sessionStorage.setItem('bm_room', JSON.stringify({ roomId, roomCode, hostToken: null, isHost: false }));
+        loadStateFromObj(response.data[0].session_state);
 
-    roomId = data.id; roomCode = data.code; hostToken = null; isHost = false;
-    sessionStorage.setItem('bm_room', JSON.stringify({ roomId, roomCode, hostToken: null, isHost: false }));
-    loadStateFromObj(data.session_state);
-    enterApp();
+        if (name) {
+            pendingGuestName = name;
+            pendingGuestSkill = skill;
+        }
+
+        enterApp();
+
+    } catch (e) {
+        console.error("Join Error:", e);
+        alert("❌ เข้าร่วมไม่ได้:\n\n" + e.message);
+    } finally {
+        if (btn) {
+            btn.innerHTML = '&#128640; เข้าร่วม';
+            btn.disabled = false;
+        }
+    }
 }
 
 function enterApp() {
@@ -495,7 +555,10 @@ function enterApp() {
 
 function subscribeToRoom() {
     if (realtimeChannel) { realtimeChannel.unsubscribe(); realtimeChannel = null; }
-    realtimeChannel = sb.channel('room-' + roomId)
+    // เปิดใช้งานโหมด Broadcast 
+    realtimeChannel = sb.channel('room-' + roomId, {
+        config: { broadcast: { self: false } }
+    })
         .on('postgres_changes', {
             event: 'UPDATE', schema: 'public', table: 'rooms',
             filter: `id=eq.${roomId}`
@@ -516,16 +579,41 @@ function subscribeToRoom() {
             }
             lucide.createIcons();
         })
-        .subscribe();
+        // Host จะคอยฟังเวลามี Guest ส่งชื่อเข้ามา
+        .on('broadcast', { event: 'guest_join' }, (payload) => {
+            if (isHost) {
+                const { name, skill } = payload.payload;
+                addPlayer(name, skill);
+                showToast(`👋 ${name} เข้าร่วมและลงชื่อแล้ว!`);
+            }
+        })
+        .subscribe(async (status) => {
+            // เมื่อ Guest เชื่อมต่อสำเร็จและมีชื่อค้างอยู่ ให้สะกิดบอก Host
+            if (status === 'SUBSCRIBED' && !isHost && pendingGuestName) {
+                await realtimeChannel.send({
+                    type: 'broadcast',
+                    event: 'guest_join',
+                    payload: { name: pendingGuestName, skill: pendingGuestSkill }
+                });
+                pendingGuestName = null; // ล้างค่าทิ้งเพื่อไม่ให้ส่งซ้ำ
+            }
+        });
 }
 
 async function leaveRoom() {
     if (!confirm('ปิดห้องนี้? ผู้ร่วมทุกคนจะออกจากห้อง')) return;
-    if (roomId && isHost) {
-        await sb.from('rooms').update({ status: 'ended' }).eq('id', roomId);
+    
+    try {
+        if (roomId && isHost) {
+            await sb.from('rooms').update({ status: 'ended' }).eq('id', roomId);
+        }
+    } catch (error) {
+        console.warn("ไม่สามารถอัปเดตสถานะห้องใน DB ได้ (แต่จะปิดห้องในแอปให้):", error);
+    } finally {
+        // ทิ้งค่าเก่าและโหลดหน้าเว็บใหม่เสมอ ไม่ว่าจะเกิดอะไรขึ้น
+        sessionStorage.removeItem('bm_room');
+        location.reload();
     }
-    sessionStorage.removeItem('bm_room');
-    location.reload();
 }
 
 // ================================================================
@@ -556,17 +644,26 @@ function switchTab(tab) {
     if (tab==='stats') renderStats();
 }
 
-function addPlayer() {
+function addPlayer(inName = null, inSkill = null) {
     if (!isHost) return;
     const inp = document.getElementById('playerName');
-    const name = inp.value.trim();
-    const skill = parseInt(document.getElementById('playerSkill').value);
+    const name = inName !== null ? inName : inp.value.trim();
+    const skill = inSkill !== null ? inSkill : parseInt(document.getElementById('playerSkill').value);
+    
     if (!name) return;
+
+    // เช็กว่ามีชื่อนี้ในระบบแล้วหรือยัง (ป้องกันแอดซ้ำ)
+    if (players.find(p => p.name === name)) {
+        if (inName === null) showToast('ชื่อนี้มีอยู่ในก๊วนแล้ว!');
+        return;
+    }
+
     const id = Math.random().toString(36).substr(2,9);
     players.push({ id, name, skill, games:0, wins:0, losses:0, draws:0 });
     splitSelected[id] = true;
     if (sessionActive && currentMode === 1) { waitingQueue.push(id); renderSession(); }
-    inp.value = ''; save();
+    if (inName === null) inp.value = ''; 
+    save();
 }
 
 function removePlayer(id) {
