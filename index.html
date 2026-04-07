@@ -303,11 +303,10 @@
 // SUPABASE CONFIG
 // ================================================================
 const SUPABASE_URL  = 'https://rcfbricvpkkjbclesqjf.supabase.co';
-const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjZmJyaWM2cGtramJjbGVzcWpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NDk4NDMsImV4cCI6MjA5MTEyNTg0M30.G4uRu3J25O04pACDkRxhqMCYiYnzdCkDAkaYFB8vhYw';
-var sb = null;
-window.addEventListener('DOMContentLoaded', function() {
-    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-});
+const SUPABASE_KEY  = 'sb_publishable_783t76z0IbRtKj1s8I-UKQ_Nud_Q5Kw';
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 // ================================================================
 // ROOM STATE
 // ================================================================
@@ -412,7 +411,6 @@ async function recordMatch(courtId, teamA, teamB, result, mode) {
 // ROOM MANAGEMENT
 // ================================================================
 async function createRoom() {
-    if (!sb) sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     const btn = document.getElementById('createRoomBtn');
     btn.innerHTML = '&#9203; กำลังสร้าง...';
     btn.disabled = true;
@@ -439,12 +437,24 @@ async function createRoom() {
 async function joinRoom() {
     if (!sb) sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     const code = (document.getElementById('joinCodeInput').value || '').toUpperCase().trim();
-    if (code.length !== 6) { showToast('กรอกรหัส 6 หลักด้วยนะ &#128521;'); return; }
+    if (code.length !== 6) { showToast('กรอกรหัส 6 หลักด้วยนะ 😉'); return; }
 
+    console.log("🔍 กำลังค้นหาห้อง:", code);
     const { data, error } = await sb.from('rooms')
         .select('*').eq('code', code).eq('status', 'active').maybeSingle();
+        
+    console.log("📊 ผลลัพธ์จาก Database:", { data, error });
 
-    if (error || !data) { showToast('&#10060; ไม่พบห้อง หรือห้องปิดไปแล้ว'); return; }
+    if (error) {
+        console.error("Join Error:", error);
+        showToast('❌ ข้อผิดพลาด: ' + error.message);
+        return;
+    }
+    if (!data) { 
+        console.warn("⚠️ หากมั่นใจว่ารหัสถูก แสดงว่าระบบบล็อกการอ่านข้อมูล (ติด RLS)");
+        showToast('❌ ไม่พบห้อง หรือห้องปิดไปแล้ว'); 
+        return; 
+    }
 
     roomId = data.id; roomCode = data.code; hostToken = null; isHost = false;
     sessionStorage.setItem('bm_room', JSON.stringify({ roomId, roomCode, hostToken: null, isHost: false }));
