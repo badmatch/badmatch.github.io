@@ -346,9 +346,7 @@ let mode2NeedsReset = false;
 let koState = { round: 1, matches: [], winners: [], losers: [] };
 let editingCourtId = null;
 
-// ตัวแปรเก็บข้อมูลชื่อ Guest ชั่วคราวเพื่อส่งให้ Host
-let pendingGuestName = null;
-let pendingGuestSkill = 3;
+// (ลบ pendingGuestName ทิ้งไป เพราะเราจะเขียนลง Database โดยตรง)
 
 // ================================================================
 // STATE HELPERS
@@ -492,7 +490,6 @@ async function joinRoom() {
             
         if (response.error) throw new Error(response.error.message);
         
-        // เช็กเคสค้นหาไม่เจอ หรือติด RLS
         if (!response.data || response.data.length === 0) { 
             throw new Error("ไม่พบห้องนี้ หรือระบบฐานข้อมูลกำลังบล็อกการค้นหา (ติด RLS)");
         }
@@ -502,13 +499,31 @@ async function joinRoom() {
         hostToken = null; 
         isHost = false;
         sessionStorage.setItem('bm_room', JSON.stringify({ roomId, roomCode, hostToken: null, isHost: false }));
-        loadStateFromObj(response.data[0].session_state);
-
+        
+        // ----------------------------------------------------
+        // ฟีเจอร์ใหม่: Guest เขียนชื่อลง Database ตัวเองเลย
+        // ----------------------------------------------------
+        let state = response.data[0].session_state || {};
+        
         if (name) {
-            pendingGuestName = name;
-            pendingGuestSkill = skill;
+            if (!state.players) state.players = [];
+            // เช็กชื่อซ้ำ
+            if (!state.players.find(p => p.name === name)) {
+                const id = Math.random().toString(36).substr(2,9);
+                state.players.push({ id, name, skill, games:0, wins:0, losses:0, draws:0 });
+                if (!state.splitSelected) state.splitSelected = {};
+                state.splitSelected[id] = true;
+                if (state.sessionActive && state.currentMode === 1) {
+                     if(!state.waitingQueue) state.waitingQueue = [];
+                     state.waitingQueue.push(id);
+                }
+                
+                // อัปเดตขึ้นฐานข้อมูลทันที Host จะเห็นทันที
+                await sb.from('rooms').update({ session_state: state }).eq('id', roomId);
+            }
         }
-
+        
+        loadStateFromObj(state);
         enterApp();
 
     } catch (e) {
@@ -555,16 +570,33 @@ function enterApp() {
 
 function subscribeToRoom() {
     if (realtimeChannel) { realtimeChannel.unsubscribe(); realtimeChannel = null; }
-    // เปิดใช้งานโหมด Broadcast 
-    realtimeChannel = sb.channel('room-' + roomId, {
-        config: { broadcast: { self: false } }
-    })
+    realtimeChannel = sb.channel('room-' + roomId)
         .on('postgres_changes', {
             event: 'UPDATE', schema: 'public', table: 'rooms',
             filter: `id=eq.${roomId}`
         }, (payload) => {
-            if (isHost) return; // Host already has the latest state
-            loadStateFromObj(payload.new.session_state);
+            const remoteState = payload.new.session_state || {};
+            
+            // ----------------------------------------------------
+            // สำหรับ Host: รับรู้เมื่อมี Guest เขียนชื่อลง Database
+            // ----------------------------------------------------
+            if (isHost) {
+                const remotePlayers = remoteState.players || [];
+                // ถ้า Database มีคนเยอะกว่าในหน้าจอ Host แสดงว่ามีคน Join!
+                if (remotePlayers.length > players.length) {
+                    const newP = remotePlayers[remotePlayers.length - 1];
+                    loadStateFromObj(remoteState);
+                    renderPlayers();
+                    if (sessionActive) renderSession();
+                    showToast(`👋 ${newP ? newP.name : 'สมาชิกใหม่'} เข้าร่วมและลงชื่อแล้ว!`);
+                }
+                return; // หยุดทำงานตรงนี้ เพื่อไม่ให้ Host โดนทับข้อมูลเวลาจัดทีม
+            }
+            
+            // ----------------------------------------------------
+            // สำหรับ Guest: ซิงค์ทุกอย่างตาม Host เสมอ
+            // ----------------------------------------------------
+            loadStateFromObj(remoteState);
             renderPlayers();
             if (sessionActive) {
                 document.getElementById('setupPanel').classList.add('hidden');
@@ -579,25 +611,7 @@ function subscribeToRoom() {
             }
             lucide.createIcons();
         })
-        // Host จะคอยฟังเวลามี Guest ส่งชื่อเข้ามา
-        .on('broadcast', { event: 'guest_join' }, (payload) => {
-            if (isHost) {
-                const { name, skill } = payload.payload;
-                addPlayer(name, skill);
-                showToast(`👋 ${name} เข้าร่วมและลงชื่อแล้ว!`);
-            }
-        })
-        .subscribe(async (status) => {
-            // เมื่อ Guest เชื่อมต่อสำเร็จและมีชื่อค้างอยู่ ให้สะกิดบอก Host
-            if (status === 'SUBSCRIBED' && !isHost && pendingGuestName) {
-                await realtimeChannel.send({
-                    type: 'broadcast',
-                    event: 'guest_join',
-                    payload: { name: pendingGuestName, skill: pendingGuestSkill }
-                });
-                pendingGuestName = null; // ล้างค่าทิ้งเพื่อไม่ให้ส่งซ้ำ
-            }
-        });
+        .subscribe();
 }
 
 async function leaveRoom() {
@@ -644,17 +658,15 @@ function switchTab(tab) {
     if (tab==='stats') renderStats();
 }
 
-function addPlayer(inName = null, inSkill = null) {
+function addPlayer() {
     if (!isHost) return;
     const inp = document.getElementById('playerName');
-    const name = inName !== null ? inName : inp.value.trim();
-    const skill = inSkill !== null ? inSkill : parseInt(document.getElementById('playerSkill').value);
-    
+    const name = inp.value.trim();
+    const skill = parseInt(document.getElementById('playerSkill').value);
     if (!name) return;
 
-    // เช็กว่ามีชื่อนี้ในระบบแล้วหรือยัง (ป้องกันแอดซ้ำ)
     if (players.find(p => p.name === name)) {
-        if (inName === null) showToast('ชื่อนี้มีอยู่ในก๊วนแล้ว!');
+        showToast('ชื่อนี้มีอยู่ในก๊วนแล้ว!');
         return;
     }
 
@@ -662,7 +674,7 @@ function addPlayer(inName = null, inSkill = null) {
     players.push({ id, name, skill, games:0, wins:0, losses:0, draws:0 });
     splitSelected[id] = true;
     if (sessionActive && currentMode === 1) { waitingQueue.push(id); renderSession(); }
-    if (inName === null) inp.value = ''; 
+    inp.value = ''; 
     save();
 }
 
