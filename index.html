@@ -116,7 +116,7 @@
             </div>
             <p class="text-xs text-slate-400 mb-4 ml-8">กรอกรหัสและชื่อเพื่อดูสดหรือร่วมเล่น</p>
             
-            <!-- ปรับขนาดฟอนต์เป็น text-xl ตรงนี้ตามที่ต้องการ -->
+            <!-- รหัสห้องตัวเล็กลง -->
             <input type="text" id="joinCodeInput" maxlength="6" placeholder="รหัสห้อง XXXXXX"
                 class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-center text-xl font-black text-slate-700 focus:ring-2 focus:ring-emerald-400 focus:outline-none tracking-[0.4em] uppercase mb-3"
                 oninput="this.value=this.value.toUpperCase()">
@@ -236,9 +236,12 @@
                         <div id="playerList" class="divide-y divide-slate-50 max-h-[380px] overflow-y-auto mt-3"></div>
                     </div>
                 </div>
-                <button onclick="startSession()" class="host-only-flex btn-green w-full py-3.5 text-white rounded-2xl font-black text-xl active:scale-95 transition-transform flex items-center justify-center gap-2">
-                    <i data-lucide="play" class="w-5 h-5"></i> เริ่มเซสชันการเล่น!
+                
+                <!-- ปุ่มเริ่ม Session แก้ไขให้เล็กลงและสมมาตร -->
+                <button onclick="startSession()" class="host-only-flex btn-green w-full py-3.5 text-white rounded-2xl font-black text-base active:scale-95 transition-transform items-center justify-center gap-2">
+                    <i data-lucide="play" class="w-5 h-5 fill-current"></i> เริ่มเซสชันการเล่น!
                 </button>
+
             </div>
 
             <div id="sessionPanel" class="hidden space-y-4">
@@ -280,24 +283,36 @@
             <p id="statsEmpty" class="text-slate-300 text-sm text-center py-12">ยังไม่มีสถิติ<br>เล่นและบันทึกผลก่อนนะ</p>
         </div>
 
+        <!-- หน้าจอคิดเงิน (อัปเดตเรียลไทม์) -->
         <div id="page-money" class="page">
             <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 mb-4">
                 <h2 class="text-base font-bold mb-3 flex items-center gap-2 text-slate-700"><i data-lucide="wallet" class="text-emerald-500 w-5 h-5"></i> ใครจ่ายไปก่อน?</h2>
-                <select id="payerSelect" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-base font-bold text-slate-700 mb-3 focus:outline-none focus:ring-2 focus:ring-emerald-400"><option value="">-- เลือกคนที่จ่ายก่อน --</option></select>
+                <select id="payerSelect" onchange="updatePayer(this.value)" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-base font-bold text-slate-700 mb-3 focus:outline-none focus:ring-2 focus:ring-emerald-400"></select>
                 <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">ค่าคอร์ท (บาท)</label>
-                <input type="number" id="courtFee" value="0" min="0" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-base font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-400">
+                <input type="number" id="courtFee" value="0" min="0" oninput="updateCourtFee(this.value)" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-base font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-400">
             </div>
+            
             <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 mb-4">
-                <div class="flex items-center justify-between mb-3"><h2 class="text-base font-bold flex items-center gap-2 text-slate-700"><i data-lucide="feather" class="text-emerald-500 w-5 h-5"></i> ลูกแบดที่ใช้</h2><button onclick="addShuttleEntry()" class="host-only text-xs bg-emerald-50 text-emerald-600 font-bold px-3 py-1.5 rounded-xl hover:bg-emerald-100 flex items-center gap-1"><i data-lucide="plus" class="w-3 h-3"></i> เพิ่ม</button></div>
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-base font-bold flex items-center gap-2 text-slate-700"><i data-lucide="feather" class="text-emerald-500 w-5 h-5"></i> ลูกแบดที่ใช้</h2>
+                    <button onclick="addShuttleEntry()" class="host-only text-xs bg-emerald-50 text-emerald-600 font-bold px-3 py-1.5 rounded-xl hover:bg-emerald-100 flex items-center gap-1"><i data-lucide="plus" class="w-3 h-3"></i> เพิ่ม</button>
+                </div>
                 <div id="shuttleList" class="space-y-2"></div>
                 <p id="shuttleEmpty" class="text-slate-300 text-sm text-center py-4">กดเพิ่มรายการเพื่อระบุลูกที่ใช้</p>
                 <div id="shuttleSummaryBar" class="hidden mt-3 bg-emerald-50 rounded-2xl px-4 py-2.5 flex items-center justify-between"><span class="text-xs text-emerald-700 font-bold">รวม</span><span id="shuttleTotalText" class="text-sm font-black text-emerald-700"></span></div>
             </div>
+
             <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 mb-4">
-                <div class="flex items-center justify-between mb-3"><h2 class="text-base font-bold flex items-center gap-2 text-slate-700"><i data-lucide="users" class="text-emerald-500 w-5 h-5"></i> คนที่ร่วมหาร</h2><div class="host-only-flex flex gap-2"><button onclick="toggleAllSplit(true)" class="text-[10px] text-indigo-500 font-bold hover:underline">ทั้งหมด</button><span class="text-slate-300 text-xs">|</span><button onclick="toggleAllSplit(false)" class="text-[10px] text-slate-400 font-bold hover:underline">ล้าง</button></div></div>
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-base font-bold flex items-center gap-2 text-slate-700"><i data-lucide="users" class="text-emerald-500 w-5 h-5"></i> คนที่ร่วมหาร</h2>
+                    <div class="host-only-flex flex gap-2"><button onclick="toggleAllSplit(true)" class="text-[10px] text-indigo-500 font-bold hover:underline">ทั้งหมด</button><span class="text-slate-300 text-xs">|</span><button onclick="toggleAllSplit(false)" class="text-[10px] text-slate-400 font-bold hover:underline">ล้าง</button></div>
+                </div>
                 <div id="splitPlayerList" class="grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
             </div>
-            <button onclick="calculateMoney()" class="btn-emerald w-full py-5 text-white rounded-3xl font-black text-xl active:scale-95 transition-transform flex items-center justify-center gap-2 mb-5"><i data-lucide="calculator" class="w-6 h-6"></i> คำนวณยอดสุทธิ</button>
+
+            <button onclick="calculateMoney()" class="host-only-flex btn-emerald w-full py-5 text-white rounded-3xl font-black text-xl active:scale-95 transition-transform items-center justify-center gap-2 mb-5">
+                <i data-lucide="calculator" class="w-6 h-6"></i> คำนวณยอดสุทธิ
+            </button>
             <div id="moneyResult" class="hidden space-y-3"></div>
         </div>
 
@@ -307,7 +322,7 @@
         <button class="nav-btn" id="nav-stats" onclick="switchTab('stats')"><i data-lucide="bar-chart-2" class="w-5 h-5"></i><span>สถิติ</span></button>
         <button class="nav-btn" id="nav-money" onclick="switchTab('money')"><i data-lucide="receipt" class="w-5 h-5"></i><span>คิดเงิน</span></button>
     </nav>
-</div><!-- end #mainApp -->
+</div>
 
 <script>
 // ================================================================
@@ -329,13 +344,11 @@ let realtimeChannel = null;
 let _syncTimeout    = null;
 
 // ================================================================
-// GAME STATE
+// GAME STATE (รวมข้อมูลการคิดเงิน)
 // ================================================================
 let players        = [];
 let partnerHistory = [];
 let opponentHistory = [];
-let shuttleEntries = [];
-let splitSelected  = {};
 let courts         = [];
 let waitingQueue   = [];
 let sessionActive  = false;
@@ -346,7 +359,22 @@ let mode2NeedsReset = false;
 let koState = { round: 1, matches: [], winners: [], losers: [] };
 let editingCourtId = null;
 
-// (ลบ pendingGuestName ทิ้งไป เพราะเราจะเขียนลง Database โดยตรง)
+// Money States
+let shuttleEntries = [];
+let splitSelected  = {};
+let courtFeeVal    = 0;
+let payerIdVal     = '';
+let showMoneyResult = false;
+
+function resetGameState() {
+    players = []; partnerHistory = []; opponentHistory = [];
+    shuttleEntries = []; splitSelected = {}; courts = [];
+    waitingQueue = []; sessionActive = false; currentMode = 1;
+    fixedTeams = []; teamQueue = []; mode2NeedsReset = false;
+    koState = { round: 1, matches: [], winners: [], losers: [] };
+    editingCourtId = null;
+    courtFeeVal = 0; payerIdVal = ''; showMoneyResult = false;
+}
 
 // ================================================================
 // STATE HELPERS
@@ -355,12 +383,16 @@ function getStateObj() {
     return {
         players, courts, waitingQueue, sessionActive, currentMode,
         fixedTeams, teamQueue, mode2NeedsReset, koState,
-        partnerHistory, opponentHistory, shuttleEntries, splitSelected
+        partnerHistory, opponentHistory, shuttleEntries, splitSelected,
+        courtFeeVal, payerIdVal, showMoneyResult // Sync ค่าเงิน
     };
 }
 
 function loadStateFromObj(state) {
-    if (!state || Object.keys(state).length === 0) return;
+    if (!state || Object.keys(state).length === 0) {
+        resetGameState();
+        return;
+    }
     players          = state.players          || [];
     courts           = state.courts           || [];
     waitingQueue     = state.waitingQueue     || [];
@@ -372,8 +404,14 @@ function loadStateFromObj(state) {
     koState          = state.koState          || { round: 1, matches: [], winners: [], losers: [] };
     partnerHistory   = state.partnerHistory   || [];
     opponentHistory  = state.opponentHistory  || [];
+    
+    // โหลดค่าของหน้าคิดเงิน
     shuttleEntries   = state.shuttleEntries   || [];
     splitSelected    = state.splitSelected    || {};
+    courtFeeVal      = state.courtFeeVal      || 0;
+    payerIdVal       = state.payerIdVal       || '';
+    showMoneyResult  = state.showMoneyResult  || false;
+
     players.forEach(p => {
         if (!p.wins)   p.wins   = 0;
         if (!p.losses) p.losses = 0;
@@ -383,9 +421,6 @@ function loadStateFromObj(state) {
     });
 }
 
-// ================================================================
-// SAVE = Sync to Supabase (debounced)
-// ================================================================
 function save() {
     renderPlayers();
     if (!roomId || !isHost) return;
@@ -421,28 +456,26 @@ async function recordMatch(courtId, teamA, teamB, result, mode) {
 }
 
 // ================================================================
-// ROOM MANAGEMENT (มีระบบ Fail-safe ป้องกันปุ่มค้าง)
+// ROOM MANAGEMENT
 // ================================================================
 async function createRoom() {
     const btn = document.getElementById('createRoomBtn');
     try {
-        // เปลี่ยนสถานะปุ่ม
         btn.innerHTML = '&#9203; กำลังสร้าง...';
         btn.disabled = true;
+
+        resetGameState(); // ล้างข้อมูลเก่าทิ้งก่อนสร้างห้องใหม่
 
         const code  = Math.random().toString(36).substr(2, 6).toUpperCase();
         const token = Math.random().toString(36).substr(2, 16) + Math.random().toString(36).substr(2, 16);
 
-        // ดึงข้อมูลโดยใช้ select() แทน select().single() เพื่อหลีกเลี่ยง PGRST116 เวลาติด RLS
         const response = await sb.from('rooms').insert({
             code, host_token: token, session_state: {}
         }).select();
 
         if (response.error) throw new Error(response.error.message);
-        
-        // เช็กเคสสร้างห้องลงฐานข้อมูลสำเร็จ แต่แอปดึงข้อมูลกลับมาไม่ได้ (ติด RLS)
         if (!response.data || response.data.length === 0) {
-            throw new Error("ห้องสร้างสำเร็จ แต่ฐานข้อมูลปฏิเสธการเข้าถึง (โปรดกลับไปรันคำสั่ง 'DISABLE ROW LEVEL SECURITY' ใน SQL Editor ของ Supabase อีกครั้ง)");
+            throw new Error("ห้องสร้างสำเร็จ แต่ฐานข้อมูลปฏิเสธการเข้าถึง (ติด RLS)");
         }
 
         roomId = response.data[0].id; 
@@ -451,15 +484,12 @@ async function createRoom() {
         isHost = true;
         sessionStorage.setItem('bm_room', JSON.stringify({ roomId, roomCode, hostToken, isHost }));
         
-        // โหลดเสร็จสิ้น เข้าสู่แอป
         enterApp();
 
     } catch (e) {
         console.error("Create Room Error:", e);
-        // แจ้งเตือนข้อผิดพลาดชัดเจนบนหน้าจอ
         alert("❌ เกิดข้อผิดพลาด:\n\n" + e.message);
     } finally {
-        // *สำคัญ* บล็อกนี้จะทำงานเสมอ ไม่ว่าจะสำเร็จหรือพัง เพื่อคืนค่าปุ่มให้กลับมากดใหม่ได้
         if (btn) {
             btn.innerHTML = '&#10024; สร้างห้อง';
             btn.disabled = false;
@@ -484,12 +514,13 @@ async function joinRoom() {
             btn.innerHTML = '&#9203; กำลังค้นหา...';
             btn.disabled = true;
         }
+
+        resetGameState(); // ล้างข้อมูลเก่าทิ้งก่อนเข้าห้องใหม่
         
         const response = await sb.from('rooms')
             .select('*').eq('code', code).eq('status', 'active');
             
         if (response.error) throw new Error(response.error.message);
-        
         if (!response.data || response.data.length === 0) { 
             throw new Error("ไม่พบห้องนี้ หรือระบบฐานข้อมูลกำลังบล็อกการค้นหา (ติด RLS)");
         }
@@ -500,14 +531,11 @@ async function joinRoom() {
         isHost = false;
         sessionStorage.setItem('bm_room', JSON.stringify({ roomId, roomCode, hostToken: null, isHost: false }));
         
-        // ----------------------------------------------------
-        // ฟีเจอร์ใหม่: Guest เขียนชื่อลง Database ตัวเองเลย
-        // ----------------------------------------------------
         let state = response.data[0].session_state || {};
         
+        // ถ้า Guest กรอกชื่อมา ให้เพิ่มตัวเองลง Database ทันที
         if (name) {
             if (!state.players) state.players = [];
-            // เช็กชื่อซ้ำ
             if (!state.players.find(p => p.name === name)) {
                 const id = Math.random().toString(36).substr(2,9);
                 state.players.push({ id, name, skill, games:0, wins:0, losses:0, draws:0 });
@@ -517,8 +545,7 @@ async function joinRoom() {
                      if(!state.waitingQueue) state.waitingQueue = [];
                      state.waitingQueue.push(id);
                 }
-                
-                // อัปเดตขึ้นฐานข้อมูลทันที Host จะเห็นทันที
+                // อัปเดตขึ้นฐานข้อมูลทันที Host จะเห็น
                 await sb.from('rooms').update({ session_state: state }).eq('id', roomId);
             }
         }
@@ -577,12 +604,8 @@ function subscribeToRoom() {
         }, (payload) => {
             const remoteState = payload.new.session_state || {};
             
-            // ----------------------------------------------------
-            // สำหรับ Host: รับรู้เมื่อมี Guest เขียนชื่อลง Database
-            // ----------------------------------------------------
             if (isHost) {
                 const remotePlayers = remoteState.players || [];
-                // ถ้า Database มีคนเยอะกว่าในหน้าจอ Host แสดงว่ามีคน Join!
                 if (remotePlayers.length > players.length) {
                     const newP = remotePlayers[remotePlayers.length - 1];
                     loadStateFromObj(remoteState);
@@ -593,9 +616,6 @@ function subscribeToRoom() {
                 return; // หยุดทำงานตรงนี้ เพื่อไม่ให้ Host โดนทับข้อมูลเวลาจัดทีม
             }
             
-            // ----------------------------------------------------
-            // สำหรับ Guest: ซิงค์ทุกอย่างตาม Host เสมอ
-            // ----------------------------------------------------
             loadStateFromObj(remoteState);
             renderPlayers();
             if (sessionActive) {
@@ -609,6 +629,12 @@ function subscribeToRoom() {
                 document.getElementById('setupPanel').classList.remove('hidden');
                 document.getElementById('sessionPanel').classList.add('hidden');
             }
+
+            // ถ้า Guest เปิดหน้าคิดเงินอยู่ ให้อัปเดตข้อมูล Real-time เลย
+            if (document.getElementById('page-money').classList.contains('active')) {
+                renderMoneyPage();
+            }
+
             lucide.createIcons();
         })
         .subscribe();
@@ -617,16 +643,17 @@ function subscribeToRoom() {
 async function leaveRoom() {
     if (!confirm('ปิดห้องนี้? ผู้ร่วมทุกคนจะออกจากห้อง')) return;
     
-    try {
-        if (roomId && isHost) {
-            await sb.from('rooms').update({ status: 'ended' }).eq('id', roomId);
-        }
-    } catch (error) {
-        console.warn("ไม่สามารถอัปเดตสถานะห้องใน DB ได้ (แต่จะปิดห้องในแอปให้):", error);
-    } finally {
-        // ทิ้งค่าเก่าและโหลดหน้าเว็บใหม่เสมอ ไม่ว่าจะเกิดอะไรขึ้น
-        sessionStorage.removeItem('bm_room');
-        location.reload();
+    sessionStorage.removeItem('bm_room');
+    
+    if (roomId && isHost) {
+        Promise.race([
+            sb.from('rooms').update({ status: 'ended' }).eq('id', roomId),
+            new Promise(resolve => setTimeout(resolve, 800))
+        ]).finally(() => {
+            window.location.href = window.location.pathname;
+        });
+    } else {
+        window.location.href = window.location.pathname;
     }
 }
 
@@ -647,7 +674,7 @@ async function leaveRoom() {
 })();
 
 // ================================================================
-// GAME FUNCTIONS (preserved — only data layer changed)
+// GAME FUNCTIONS
 // ================================================================
 function switchTab(tab) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -1078,26 +1105,39 @@ function renderCourtCards() {
     }).join(''); lucide.createIcons();
 }
 
-// ================================================================
-// STATS & MONEY
-// ================================================================
 function clearHistory() {
     if (!isHost) return;
     partnerHistory=[]; opponentHistory=[]; save(); showToast('ล้างประวัติแล้ว!');
 }
-function resetAll() {
+
+async function resetAll() {
     if (!isHost) return;
     if(!confirm('ล้างข้อมูลทั้งหมด?')) return;
-    players=[]; partnerHistory=[]; shuttleEntries=[]; splitSelected={}; courts=[]; waitingQueue=[]; sessionActive=false;
-    if (roomId) sb.from('rooms').update({ session_state: {}, status: 'ended' }).eq('id', roomId);
+    
+    resetGameState();
     sessionStorage.removeItem('bm_room');
-    location.reload();
+    
+    if (roomId) {
+        Promise.race([
+            sb.from('rooms').update({ session_state: {}, status: 'ended' }).eq('id', roomId),
+            new Promise(resolve => setTimeout(resolve, 800))
+        ]).finally(() => {
+            window.location.href = window.location.pathname;
+        });
+    } else {
+        window.location.href = window.location.pathname;
+    }
 }
+
 function showToast(msg) {
     const t=document.getElementById('toast');
     t.innerHTML=msg; t.style.opacity='1';
     clearTimeout(t._t); t._t=setTimeout(()=>t.style.opacity='0',2500);
 }
+
+// ================================================================
+// STATS & MONEY
+// ================================================================
 function renderStats() {
     const list=document.getElementById('statsList'),empty=document.getElementById('statsEmpty');
     const with_s=players.filter(p=>(p.wins+p.losses+p.draws)>0);
@@ -1113,43 +1153,69 @@ function clearAllStats() {
     if (!isHost) return;
     if(confirm('ล้างสถิติ?')){players.forEach(p=>{p.wins=0;p.losses=0;p.draws=0;p.games=0;}); save(); renderStats();}
 }
-function renderMoneyPage() {
-    const sel=document.getElementById('payerSelect'),cur=sel.value;
-    sel.innerHTML='<option value="">-- เลือกคนที่จ่ายก่อน --</option>'+ players.map(p=>`<option value="${p.id}" ${p.id===cur?'selected':''}>${p.name}</option>`).join('');
-    renderShuttleList(); renderSplitPlayers();
+
+// --- ฟังก์ชันอัปเดตค่าเงินเข้า State ---
+function updateCourtFee(val) {
+    if(!isHost) return;
+    courtFeeVal = parseFloat(val) || 0;
+    showMoneyResult = false; 
+    save();
 }
+
+function updatePayer(val) {
+    if(!isHost) return;
+    payerIdVal = val;
+    showMoneyResult = false;
+    save();
+}
+
+function renderMoneyPage() {
+    const sel=document.getElementById('payerSelect');
+    sel.innerHTML='<option value="">-- เลือกคนที่จ่ายก่อน --</option>'+ players.map(p=>`<option value="${p.id}" ${p.id===payerIdVal?'selected':''}>${p.name}</option>`).join('');
+    sel.disabled = !isHost; // Guest แก้ไม่ได้
+    
+    const feeInp = document.getElementById('courtFee');
+    feeInp.value = courtFeeVal;
+    feeInp.readOnly = !isHost; // Guest พิมพ์ไม่ได้
+
+    renderShuttleList(); 
+    renderSplitPlayers();
+    renderMoneyResult();
+}
+
 function renderShuttleList(){
     const l=document.getElementById('shuttleList'),e=document.getElementById('shuttleEmpty'),b=document.getElementById('shuttleSummaryBar');
     if(!shuttleEntries.length){l.innerHTML='';e.style.display='block';b.classList.add('hidden');return;}
     e.style.display='none'; let tQ=0,tV=0;
     l.innerHTML=shuttleEntries.map(en=>{ const v=en.qty*en.price;tQ+=en.qty;tV+=v;
-        const editable = isHost;
         return `<div class="shuttle-entry flex flex-wrap items-center gap-2">
-            <select ${editable?`onchange="updateShuttleOwner('${en.id}',this.value)"`:'disabled'} class="flex-1 min-w-[110px] px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700">
+            <select ${isHost?`onchange="updateShuttleOwner('${en.id}',this.value)"`:'disabled'} class="flex-1 min-w-[110px] px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700">
                 <option value="">-- เจ้าของลูก --</option>
                 ${players.map(p=>`<option value="${p.id}" ${p.id===en.ownerId?'selected':''}>${p.name}</option>`).join('')}
                 <option value="__pool__" ${en.ownerId==='__pool__'?'selected':''}>&#127995; ซื้อกลาง</option>
             </select>
             <div class="flex items-center bg-white border border-slate-200 rounded-xl px-1.5 py-1 gap-0.5">
-                ${editable?`<button onclick="adjShuttle('${en.id}',-1)" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 font-black">&#8722;</button>`:''}
+                ${isHost?`<button onclick="adjShuttle('${en.id}',-1)" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 font-black">&#8722;</button>`:''}
                 <span class="w-6 text-center font-black text-slate-700 text-sm">${en.qty}</span>
-                ${editable?`<button onclick="adjShuttle('${en.id}',1)" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bv-slate-100 text-slate-500 font-black">&#43;</button>`:''}
+                ${isHost?`<button onclick="adjShuttle('${en.id}',1)" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 font-black">&#43;</button>`:''}
             </div>
             <div class="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5">
-                <input type="number" value="${en.price}" min="1" ${editable?`onchange="updateShuttlePrice('${en.id}',this.value)"`:'readonly'} class="w-14 text-center font-black text-emerald-700 text-sm bg-transparent focus:outline-none">
+                <input type="number" value="${en.price}" min="1" ${isHost?`onchange="updateShuttlePrice('${en.id}',this.value)"`:'readonly'} class="w-14 text-center font-black text-emerald-700 text-sm bg-transparent focus:outline-none">
             </div>
             <span class="text-xs text-emerald-600 font-black w-14 text-right">${v.toLocaleString()}&#3647;</span>
-            ${editable?`<button onclick="rmShuttle('${en.id}')" class="text-slate-300 hover:text-red-400"><i data-lucide="x" class="w-4 h-4"></i></button>`:''}
+            ${isHost?`<button onclick="rmShuttle('${en.id}')" class="text-slate-300 hover:text-red-400"><i data-lucide="x" class="w-4 h-4"></i></button>`:''}
         </div>`;
     }).join('');
     document.getElementById('shuttleTotalText').innerText=`${tQ} ลูก = ${tV.toLocaleString()} &#3647;`;
     b.classList.remove('hidden'); lucide.createIcons();
 }
-function addShuttleEntry(){if(!isHost)return;shuttleEntries.push({id:Math.random().toString(36).substr(2,9),ownerId:'',qty:1,price:20});renderShuttleList();}
-function rmShuttle(id){if(!isHost)return;shuttleEntries=shuttleEntries.filter(e=>e.id!==id);renderShuttleList();}
-function updateShuttleOwner(id,v){if(!isHost)return;const e=shuttleEntries.find(x=>x.id===id);if(e)e.ownerId=v;renderShuttleList();}
-function updateShuttlePrice(id,v){if(!isHost)return;const e=shuttleEntries.find(x=>x.id===id);if(e)e.price=Math.max(1,parseFloat(v)||1);renderShuttleList();}
-function adjShuttle(id,d){if(!isHost)return;const e=shuttleEntries.find(x=>x.id===id);if(e)e.qty=Math.max(1,e.qty+d);renderShuttleList();}
+
+function addShuttleEntry(){if(!isHost)return;shuttleEntries.push({id:Math.random().toString(36).substr(2,9),ownerId:'',qty:1,price:20}); showMoneyResult=false; save(); renderShuttleList();}
+function rmShuttle(id){if(!isHost)return;shuttleEntries=shuttleEntries.filter(e=>e.id!==id); showMoneyResult=false; save(); renderShuttleList();}
+function updateShuttleOwner(id,v){if(!isHost)return;const e=shuttleEntries.find(x=>x.id===id);if(e)e.ownerId=v; showMoneyResult=false; save(); renderShuttleList();}
+function updateShuttlePrice(id,v){if(!isHost)return;const e=shuttleEntries.find(x=>x.id===id);if(e)e.price=Math.max(1,parseFloat(v)||1); showMoneyResult=false; save(); renderShuttleList();}
+function adjShuttle(id,d){if(!isHost)return;const e=shuttleEntries.find(x=>x.id===id);if(e)e.qty=Math.max(1,e.qty+d); showMoneyResult=false; save(); renderShuttleList();}
+
 function renderSplitPlayers(){
     const l=document.getElementById('splitPlayerList');
     players.forEach(p=>{if(splitSelected[p.id]===undefined)splitSelected[p.id]=true;});
@@ -1157,19 +1223,105 @@ function renderSplitPlayers(){
         return `<button ${isHost?`onclick="toggleSplit('${p.id}')"`:'disabled'} class="flex items-center gap-2 px-3 py-2.5 rounded-2xl border-2 text-sm font-bold transition-all ${on?'border-emerald-400 bg-emerald-50 text-emerald-800':'border-slate-200 bg-white text-slate-400'}"><span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0 ${on?'bg-emerald-400 text-white':'bg-slate-200 text-transparent'}">&#10003;</span>${p.name}</button>`;
     }).join('');
 }
-function toggleSplit(id){if(!isHost)return;splitSelected[id]=!splitSelected[id];renderSplitPlayers();}
-function toggleAllSplit(v){if(!isHost)return;players.forEach(p=>splitSelected[p.id]=v);renderSplitPlayers();}
+
+function toggleSplit(id){if(!isHost)return;splitSelected[id]=!splitSelected[id]; showMoneyResult=false; save(); renderSplitPlayers();}
+function toggleAllSplit(v){if(!isHost)return;players.forEach(p=>splitSelected[p.id]=v); showMoneyResult=false; save(); renderSplitPlayers();}
+
 function calculateMoney(){
-    const pId=document.getElementById('payerSelect').value; if(!pId){alert('เลือกคนจ่ายก่อน!');return;}
-    const cF=parseFloat(document.getElementById('courtFee').value)||0;
+    if(!isHost) return;
+    if(!payerIdVal){alert('เลือกคนจ่ายก่อน!');return;}
     const splitters=players.filter(p=>splitSelected[p.id]);
     if(!splitters.length){alert('เลือกคนหาร!');return;}
-    const tS=shuttleEntries.reduce((s,e)=>s+e.qty*e.price,0); const total=cF+tS, share=total/splitters.length;
-    const cred={}; shuttleEntries.forEach(e=>{if(e.ownerId&&e.ownerId!=='__pool__')cred[e.ownerId]=(cred[e.ownerId]||0)+e.qty*e.price;});
-    const payer=players.find(p=>p.id===pId); const fmt=n=>Math.round(n).toLocaleString();
-    const pNet=(cF+(cred[pId]||0))-share; const res=document.getElementById('moneyResult');
+    
+    // สั่งให้โชว์ผลลัพธ์แล้วเซฟลง Database (Guest จะได้อัปเดตตามทันที)
+    showMoneyResult = true;
+    save(); 
+    renderMoneyResult();
+}
+
+function renderMoneyResult() {
+    const res = document.getElementById('moneyResult');
+    if (!showMoneyResult || !payerIdVal) {
+        res.classList.add('hidden');
+        return;
+    }
+    
+    const splitters = players.filter(p => splitSelected[p.id]);
+    if (!splitters.length) return;
+    
+    const cF = courtFeeVal;
+    const tS = shuttleEntries.reduce((s,e)=>s+e.qty*e.price,0); 
+    const total = cF+tS;
+    const share = total/splitters.length;
+    
+    const cred={}; 
+    shuttleEntries.forEach(e => {
+        if(e.ownerId && e.ownerId !== '__pool__') cred[e.ownerId] = (cred[e.ownerId]||0) + e.qty*e.price;
+    });
+    
+    const payer = players.find(p => p.id === payerIdVal); 
+    if (!payer) return;
+    
+    const fmt = n => Math.round(n).toLocaleString();
+    const pNet = (cF + (cred[payerIdVal]||0)) - share;
+    
     res.classList.remove('hidden');
-    res.innerHTML=`<div class="money-card pop-in"><div class="bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-4"><p class="text-emerald-100 text-[10px] font-bold uppercase tracking-widest mb-1">ยอดรวม</p><p class="text-white text-3xl font-black">${fmt(total)} &#3647;</p><p class="text-emerald-100 text-xs mt-1">คนละ ${fmt(share)} &#3647;</p></div></div><div class="money-card pop-in" style="animation-delay:0.07s"><div class="px-5 py-3 bg-slate-50 border-b border-slate-100"><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">ยอดสุทธิ</p></div>${splitters.map(p=>{ const c=cred[p.id]||0, isP=p.id===pId; if(isP){ const r=Math.round(pNet); return `<div class="owes-row"><div><span class="font-black text-slate-800 text-sm">${p.name}</span><span class="chip chip-yellow ml-2">จ่ายก่อน</span>${c>0?`<span class="chip chip-green ml-1">+ลูก ${fmt(c)}&#3647;</span>`:''}</div><div class="text-right">${r>=0?`<div class="text-emerald-600 font-black">รับ ${fmt(r)} &#3647;</div>`:`<div class="text-blue-500 font-black">คืน ${fmt(Math.abs(r))} &#3647;</div>`}</div></div>`; } const n=Math.round(share-c); if(n<=0) return `<div class="owes-row"><div><span class="font-black text-slate-800 text-sm">${p.name}</span>${c>0?`<span class="chip chip-green ml-2">+ลูก ${fmt(c)}&#3647;</span>`:''}</div><div class="text-right"><div class="text-blue-500 font-black">${payer.name} คืน ${fmt(Math.abs(n))} &#3647;</div></div></div>`; return `<div class="owes-row"><div><span class="font-black text-slate-800 text-sm">${p.name}</span>${c>0?`<span class="chip chip-green ml-2">+ลูก ${fmt(c)}&#3647;</span>`:''}</div><div class="text-right"><div class="text-rose-500 font-black">จ่าย ${fmt(n)} &#3647;</div><div class="text-[10px] text-slate-400">ให้ ${payer.name}</div></div></div>`; }).join('')}</div>`;
+    res.innerHTML = `
+        <div class="money-card pop-in">
+            <div class="bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-4">
+                <p class="text-emerald-100 text-[10px] font-bold uppercase tracking-widest mb-1">ยอดรวม</p>
+                <p class="text-white text-3xl font-black">${fmt(total)} &#3647;</p>
+                <p class="text-emerald-100 text-xs mt-1">คนละ ${fmt(share)} &#3647;</p>
+            </div>
+        </div>
+        <div class="money-card pop-in" style="animation-delay:0.07s">
+            <div class="px-5 py-3 bg-slate-50 border-b border-slate-100">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">ยอดสุทธิ</p>
+            </div>
+            ${splitters.map(p => { 
+                const c = cred[p.id]||0;
+                const isP = p.id === payerIdVal; 
+                
+                if(isP){ 
+                    const r = Math.round(pNet); 
+                    return `<div class="owes-row">
+                                <div>
+                                    <span class="font-black text-slate-800 text-sm">${p.name}</span>
+                                    <span class="chip chip-yellow ml-2">จ่ายก่อน</span>
+                                    ${c>0 ? `<span class="chip chip-green ml-1">+ลูก ${fmt(c)}&#3647;</span>` : ''}
+                                </div>
+                                <div class="text-right">
+                                    ${r>=0 ? `<div class="text-emerald-600 font-black">รับ ${fmt(r)} &#3647;</div>` : `<div class="text-blue-500 font-black">คืน ${fmt(Math.abs(r))} &#3647;</div>`}
+                                </div>
+                            </div>`; 
+                } 
+                
+                const n = Math.round(share-c); 
+                
+                if(n<=0) {
+                    return `<div class="owes-row">
+                                <div>
+                                    <span class="font-black text-slate-800 text-sm">${p.name}</span>
+                                    ${c>0 ? `<span class="chip chip-green ml-2">+ลูก ${fmt(c)}&#3647;</span>` : ''}
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-blue-500 font-black">${payer.name} คืน ${fmt(Math.abs(n))} &#3647;</div>
+                                </div>
+                            </div>`;
+                }
+                
+                return `<div class="owes-row">
+                            <div>
+                                <span class="font-black text-slate-800 text-sm">${p.name}</span>
+                                ${c>0 ? `<span class="chip chip-green ml-2">+ลูก ${fmt(c)}&#3647;</span>` : ''}
+                            </div>
+                            <div class="text-right">
+                                <div class="text-rose-500 font-black">จ่าย ${fmt(n)} &#3647;</div>
+                                <div class="text-[10px] text-slate-400">ให้ ${payer.name}</div>
+                            </div>
+                        </div>`; 
+            }).join('')}
+        </div>`;
 }
 </script>
 </body>
