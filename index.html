@@ -1192,7 +1192,6 @@ function renderShuttleList(){
             <select ${isHost?`onchange="updateShuttleOwner('${en.id}',this.value)"`:'disabled'} class="flex-1 min-w-[110px] px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700">
                 <option value="">-- เจ้าของลูก --</option>
                 ${players.map(p=>`<option value="${p.id}" ${p.id===en.ownerId?'selected':''}>${p.name}</option>`).join('')}
-                <option value="__pool__" ${en.ownerId==='__pool__'?'selected':''}>&#127995; ซื้อกลาง</option>
             </select>
             <div class="flex items-center bg-white border border-slate-200 rounded-xl px-1.5 py-1 gap-0.5">
                 ${isHost?`<button onclick="adjShuttle('${en.id}',-1)" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 font-black">&#8722;</button>`:''}
