@@ -1202,11 +1202,11 @@ function renderShuttleList(){
             <div class="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5">
                 <input type="number" value="${en.price}" min="1" ${isHost?`onchange="updateShuttlePrice('${en.id}',this.value)"`:'readonly'} class="w-14 text-center font-black text-emerald-700 text-sm bg-transparent focus:outline-none">
             </div>
-            <span class="text-xs text-emerald-600 font-black w-14 text-right">${v.toLocaleString()}&#3647;</span>
+            <span class="text-xs text-emerald-600 font-black w-14 text-right">${v.toLocaleString()}฿;</span>
             ${isHost?`<button onclick="rmShuttle('${en.id}')" class="text-slate-300 hover:text-red-400"><i data-lucide="x" class="w-4 h-4"></i></button>`:''}
         </div>`;
     }).join('');
-    document.getElementById('shuttleTotalText').innerText=`${tQ} ลูก = ${tV.toLocaleString()} &#3647;`;
+    document.getElementById('shuttleTotalText').innerText=`${tQ} ลูก = ${tV.toLocaleString()} ฿;`;
     b.classList.remove('hidden'); lucide.createIcons();
 }
 
@@ -1270,8 +1270,8 @@ function renderMoneyResult() {
         <div class="money-card pop-in">
             <div class="bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-4">
                 <p class="text-emerald-100 text-[10px] font-bold uppercase tracking-widest mb-1">ยอดรวม</p>
-                <p class="text-white text-3xl font-black">${fmt(total)} &#3647;</p>
-                <p class="text-emerald-100 text-xs mt-1">คนละ ${fmt(share)} &#3647;</p>
+                <p class="text-white text-3xl font-black">${fmt(total)} ฿;</p>
+                <p class="text-emerald-100 text-xs mt-1">คนละ ${fmt(share)} ฿;</p>
             </div>
         </div>
         <div class="money-card pop-in" style="animation-delay:0.07s">
@@ -1288,10 +1288,10 @@ function renderMoneyResult() {
                                 <div>
                                     <span class="font-black text-slate-800 text-sm">${p.name}</span>
                                     <span class="chip chip-yellow ml-2">จ่ายก่อน</span>
-                                    ${c>0 ? `<span class="chip chip-green ml-1">+ลูก ${fmt(c)}&#3647;</span>` : ''}
+                                    ${c>0 ? `<span class="chip chip-green ml-1">+ลูก ${fmt(c)}฿;</span>` : ''}
                                 </div>
                                 <div class="text-right">
-                                    ${r>=0 ? `<div class="text-emerald-600 font-black">รับ ${fmt(r)} &#3647;</div>` : `<div class="text-blue-500 font-black">คืน ${fmt(Math.abs(r))} &#3647;</div>`}
+                                    ${r>=0 ? `<div class="text-emerald-600 font-black">รับ ${fmt(r)} ฿;</div>` : `<div class="text-blue-500 font-black">คืน ${fmt(Math.abs(r))} ฿;</div>`}
                                 </div>
                             </div>`; 
                 } 
@@ -1302,10 +1302,10 @@ function renderMoneyResult() {
                     return `<div class="owes-row">
                                 <div>
                                     <span class="font-black text-slate-800 text-sm">${p.name}</span>
-                                    ${c>0 ? `<span class="chip chip-green ml-2">+ลูก ${fmt(c)}&#3647;</span>` : ''}
+                                    ${c>0 ? `<span class="chip chip-green ml-2">+ลูก ${fmt(c)}฿;</span>` : ''}
                                 </div>
                                 <div class="text-right">
-                                    <div class="text-blue-500 font-black">${payer.name} คืน ${fmt(Math.abs(n))} &#3647;</div>
+                                    <div class="text-blue-500 font-black">${payer.name} คืน ${fmt(Math.abs(n))} ฿;</div>
                                 </div>
                             </div>`;
                 }
@@ -1313,10 +1313,10 @@ function renderMoneyResult() {
                 return `<div class="owes-row">
                             <div>
                                 <span class="font-black text-slate-800 text-sm">${p.name}</span>
-                                ${c>0 ? `<span class="chip chip-green ml-2">+ลูก ${fmt(c)}&#3647;</span>` : ''}
+                                ${c>0 ? `<span class="chip chip-green ml-2">+ลูก ${fmt(c)}฿;</span>` : ''}
                             </div>
                             <div class="text-right">
-                                <div class="text-rose-500 font-black">จ่าย ${fmt(n)} &#3647;</div>
+                                <div class="text-rose-500 font-black">จ่าย ${fmt(n)} ฿;</div>
                                 <div class="text-[10px] text-slate-400">ให้ ${payer.name}</div>
                             </div>
                         </div>`; 
