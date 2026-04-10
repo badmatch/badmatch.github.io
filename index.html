@@ -174,18 +174,23 @@
 
         <header class="flex items-center justify-between mb-3 bg-white p-3 rounded-2xl shadow-sm border border-slate-100">
             <div>
-                <h1 class="text-lg font-extrabold text-indigo-600 flex items-center gap-1.5">
+                <h1 class="text-base font-extrabold text-indigo-600 flex items-center gap-1.5 whitespace-nowrap">
                     &#127992; Bad Match <span class="text-[10px] bg-indigo-100 text-indigo-500 px-1.5 py-0.5 rounded-md font-semibold">2v2</span>
                 </h1>
                 <p class="text-slate-400 text-[10px]">by <span class="text-indigo-400 font-semibold">prem</span></p>
             </div>
             <!-- Room info badge -->
             <div id="roomInfoBadge" class="hidden text-right flex-shrink-0 ml-2">
-                <button onclick="copyRoomCode()" class="text-xs font-black text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100 tracking-widest flex items-center gap-1.5 active:bg-indigo-100 transition-colors cursor-pointer">
-                    <i data-lucide="door-open" class="w-3.5 h-3.5"></i>
-                    <span id="roomCodeDisplay"></span>
-                    <i data-lucide="copy" class="w-3 h-3 opacity-50"></i>
-                </button>
+                <div class="flex items-center gap-1.5 justify-end">
+                    <button onclick="copyRoomCode()" class="text-xs font-black text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100 tracking-widest flex items-center gap-1.5 active:bg-indigo-100 transition-colors cursor-pointer">
+                        <i data-lucide="door-open" class="w-3.5 h-3.5"></i>
+                        <span id="roomCodeDisplay"></span>
+                        <i data-lucide="copy" class="w-3 h-3 opacity-50"></i>
+                    </button>
+                    <button onclick="shareRoom()" class="p-1.5 bg-indigo-50 text-indigo-500 rounded-xl border border-indigo-100 active:bg-indigo-100 transition-colors cursor-pointer" title="แชร์ลิ้งเข้าห้อง">
+                        <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
+                    </button>
+                </div>
                 <div id="guestBadge" class="hidden text-[10px] text-amber-600 font-bold mt-0.5 flex items-center justify-end gap-1">
                     <span class="live-badge w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span> LIVE · Guest
                     <button onclick="leaveRoom()" class="text-slate-300 hover:text-red-400 font-bold ml-1">· ออก</button>
@@ -709,6 +714,18 @@ async function leaveRoom() {
 // ================================================================
 // INIT: Restore session from sessionStorage on page reload
 // ================================================================
+// ── Deep link: ?room=XXXXXX auto-fill join form ───────────────────
+(function() {
+    const p = new URLSearchParams(location.search).get('room');
+    if (!p) return;
+    // ลบ param ออกจาก URL โดยไม่ reload
+    history.replaceState(null, '', location.pathname);
+    // รอให้ DOM พร้อม แล้วกรอก join code + เปิด join card
+    document.getElementById('joinCodeInput').value = p.toUpperCase();
+    document.getElementById('joinRoomCard').scrollIntoView({ behavior: 'smooth' });
+    showToast('รหัสห้อง ' + p.toUpperCase() + ' พร้อมแล้ว ✅');
+})();
+
 (async function init() {
     const saved = sessionStorage.getItem('bm_room');
     if (!saved) return;
@@ -757,9 +774,34 @@ function adjustCourtCount(delta) {
 }
 
 // ── Copy room code ────────────────────────────────────────────────
+function copyText(text, msg) {
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => showToast(msg)).catch(() => _fallbackCopy(text, msg));
+    } else {
+        _fallbackCopy(text, msg);
+    }
+}
+function _fallbackCopy(text, msg) {
+    const el = document.createElement('textarea');
+    el.value = text; el.style.position = 'fixed'; el.style.opacity = '0';
+    document.body.appendChild(el); el.focus(); el.select();
+    try { document.execCommand('copy'); showToast(msg); } catch(e) { showToast('กด copy ไม่ได้ — ลองกด hold แล้ว copy เอง'); }
+    document.body.removeChild(el);
+}
 function copyRoomCode() {
     if (!roomCode) return;
-    navigator.clipboard.writeText(roomCode).then(() => showToast('คัดลอกรหัส ' + roomCode + ' แล้ว! 📋'));
+    copyText(roomCode, 'คัดลอกรหัส ' + roomCode + ' แล้ว! 📋');
+}
+
+// ── Share room link ───────────────────────────────────────────────
+function shareRoom() {
+    if (!roomCode) return;
+    const url = location.origin + location.pathname + '?room=' + roomCode;
+    if (navigator.share) {
+        navigator.share({ title: 'Bad Match · ห้อง ' + roomCode, text: 'เข้าร่วมก๊วนแบดกับฉันเลย!', url });
+    } else {
+        copyText(url, 'คัดลอกลิ้ง ' + roomCode + ' แล้ว! 🔗');
+    }
 }
 
 // ── Mode description ──────────────────────────────────────────────
