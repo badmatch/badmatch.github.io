@@ -71,6 +71,9 @@
         body.is-host .host-only        { display: block !important; }
         body.is-host .host-only-flex   { display: flex !important; }
         body.is-host .host-only-inline { display: inline-flex !important; }
+        body.is-host .host-only.hidden,
+        body.is-host .host-only-flex.hidden,
+        body.is-host .host-only-inline.hidden { display: none !important; }
 
         /* Live badge pulse */
         @keyframes livepulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
@@ -1185,8 +1188,14 @@ function setResult(courtId, result) {
 // RENDERS
 // ================================================================
 function renderSession() {
-    if(currentMode === 3) document.getElementById('koRoundText').innerText = 'Round ' + koState.round;
-    else { renderQueue(); document.getElementById('koReplayContainer').classList.add('hidden'); }
+    if(currentMode === 3) {
+        document.getElementById('koRoundText').innerText = 'Round ' + koState.round;
+        const koDone = koState.round === 2 && koState.matches && koState.matches.every(x => x.done);
+        document.getElementById('koReplayContainer').classList.toggle('hidden', !koDone);
+    } else {
+        renderQueue();
+        document.getElementById('koReplayContainer').classList.add('hidden');
+    }
     renderCourtCards();
 }
 
