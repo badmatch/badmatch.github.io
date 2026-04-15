@@ -219,8 +219,8 @@
             <div id="setupPanel" class="space-y-3">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
                     <div class="space-y-3">
-                        <!-- Add Player Panel - host only -->
-                        <div class="host-only bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
+                        <!-- Add Player Panel - host/admin -->
+                        <div class="priv-only bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
                             <h2 class="text-base font-bold mb-3 flex items-center gap-2 text-slate-700"><i data-lucide="user-plus" class="text-indigo-500 w-5 h-5"></i> เพิ่มผู้เล่น</h2>
                             <div class="space-y-2">
                                 <input type="text" id="playerName" placeholder="ชื่อผู้เล่น" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-400 focus:outline-none text-sm" onkeydown="if(event.key==='Enter') addPlayer()">
@@ -325,7 +325,7 @@
             <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 mb-4">
                 <div class="flex items-center justify-between mb-3">
                     <h2 class="text-base font-bold flex items-center gap-2 text-slate-700"><i data-lucide="feather" class="text-emerald-500 w-5 h-5"></i> ลูกแบดที่ใช้</h2>
-                    <button onclick="addShuttleEntry()" class="host-only text-xs bg-emerald-50 text-emerald-600 font-bold px-3 py-1.5 rounded-xl hover:bg-emerald-100 flex items-center gap-1"><i data-lucide="plus" class="w-3 h-3"></i> เพิ่ม</button>
+                    <button onclick="addShuttleEntry()" class="priv-only text-xs bg-emerald-50 text-emerald-600 font-bold px-3 py-1.5 rounded-xl hover:bg-emerald-100 flex items-center gap-1"><i data-lucide="plus" class="w-3 h-3"></i> เพิ่ม</button>
                 </div>
                 <div id="shuttleList" class="space-y-2"></div>
                 <p id="shuttleEmpty" class="text-slate-300 text-sm text-center py-4">กดเพิ่มรายการเพื่อระบุลูกที่ใช้</p>
@@ -335,10 +335,10 @@
             <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 mb-4">
                 <div class="flex items-center justify-between mb-3">
                     <h2 class="text-base font-bold flex items-center gap-2 text-slate-700"><i data-lucide="users" class="text-emerald-500 w-5 h-5"></i> คนที่ร่วมหาร</h2>
-                    <div class="host-only-flex flex items-center gap-2"><button onclick="toggleAllSplit(true)" class="text-[10px] text-indigo-500 font-bold hover:underline">ทั้งหมด</button><span class="text-slate-300 text-xs">|</span><button onclick="toggleAllSplit(false)" class="text-[10px] text-slate-400 font-bold hover:underline">ล้าง</button></div>
+                    <div class="priv-only-flex flex items-center gap-2"><button onclick="toggleAllSplit(true)" class="text-[10px] text-indigo-500 font-bold hover:underline">ทั้งหมด</button><span class="text-slate-300 text-xs">|</span><button onclick="toggleAllSplit(false)" class="text-[10px] text-slate-400 font-bold hover:underline">ล้าง</button></div>
                 </div>
                 <!-- Toggle คิดตามเกม -->
-                <button id="splitByGamesBtn" onclick="toggleSplitByGames()" class="host-only w-full flex items-center justify-between px-4 py-3 rounded-2xl border-2 mb-3 transition-all ${splitByGames?'border-emerald-400 bg-emerald-50':'border-slate-200 bg-slate-50'}">
+                <button id="splitByGamesBtn" onclick="toggleSplitByGames()" class="priv-only w-full flex items-center justify-between px-4 py-3 rounded-2xl border-2 mb-3 transition-all ${splitByGames?'border-emerald-400 bg-emerald-50':'border-slate-200 bg-slate-50'}">
                     <div class="flex items-center gap-2">
                         <span class="text-base">&#127918;</span>
                         <div class="text-left">
@@ -353,7 +353,7 @@
                 <div id="splitPlayerList" class="grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
             </div>
 
-            <button onclick="calculateMoney()" class="host-only-flex btn-emerald w-full py-5 text-white rounded-3xl font-black text-xl active:scale-95 transition-transform items-center justify-center gap-2 mb-5">
+            <button onclick="calculateMoney()" class="priv-only-flex btn-emerald w-full py-5 text-white rounded-3xl font-black text-xl active:scale-95 transition-transform items-center justify-center gap-2 mb-5">
                 <i data-lucide="calculator" class="w-6 h-6"></i> คำนวณยอดสุทธิ
             </button>
             <div id="moneyResult" class="hidden space-y-3"></div>
@@ -405,6 +405,7 @@ let mode2NeedsReset = false;
 let koState = { round: 1, matches: [], winners: [], losers: [] };
 let editingCourtId = null;
 let queueTimes = {};   // { playerId: timestamp_ms } เวลาเริ่มรอ
+let previewEdit = null; // { ids:[id,id,id,id], selected:null|0-3 } — แก้คู่ล่วงหน้า
 
 // Money States
 let shuttleEntries = [];
@@ -420,7 +421,7 @@ function resetGameState() {
     waitingQueue = []; sessionActive = false; currentMode = 1;
     fixedTeams = []; teamQueue = []; mode2NeedsReset = false;
     koState = { round: 1, matches: [], winners: [], losers: [] };
-    editingCourtId = null; queueTimes = {};
+    editingCourtId = null; queueTimes = {}; previewEdit = null;
     courtFeeVal = 0; payerIdVal = ''; showMoneyResult = false; splitByGames = false;
 }
 
@@ -883,7 +884,7 @@ function toggleRest(id) {
 }
 
 function addPlayer() {
-    if (!isHost) return;
+    if (!isHost && !isAdmin) return;
     const inp = document.getElementById('playerName');
     const name = inp.value.trim();
     const skill = parseInt(document.getElementById('playerSkill').value);
@@ -903,7 +904,7 @@ function addPlayer() {
 }
 
 function removePlayer(id) {
-    if (!isHost) return;
+    if (!isHost && !isAdmin) return;
     waitingQueue = waitingQueue.filter(x => x!==id);
     players = players.filter(p => p.id!==id);
     delete splitSelected[id];
@@ -998,17 +999,26 @@ function startSession() {
 // ================================================================
 function tryFillCourtMode1(court) {
     if (waitingQueue.length < 4) return false;
-    const _qOrder = [...waitingQueue];
-    waitingQueue.sort((a,b) => {
-        const pA = players.find(p=>p.id===a), pB = players.find(p=>p.id===b);
-        if (!pA||!pB) return 0;
-        if (pA.games !== pB.games) return pA.games - pB.games;
-        return _qOrder.indexOf(a) - _qOrder.indexOf(b); // FIFO tiebreak
-    });
-    const ids = waitingQueue.splice(0, 4);
-    ids.forEach(id => delete queueTimes[id]);
+
+    // ถ้ามี previewEdit ที่ user ปรับไว้แล้ว → ใช้คู่นั้นเลย
+    if (previewEdit && previewEdit.teamIds && previewEdit.teamIds.length === 4 &&
+        previewEdit.teamIds.every(id => waitingQueue.includes(id))) {
+        const ids = previewEdit.teamIds;
+        court.teamA = [players.find(p=>p.id===ids[0]), players.find(p=>p.id===ids[1])].filter(Boolean);
+        court.teamB = [players.find(p=>p.id===ids[2]), players.find(p=>p.id===ids[3])].filter(Boolean);
+        court.status = 'playing'; court.result = null;
+        ids.forEach(id => { waitingQueue = waitingQueue.filter(x=>x!==id); delete queueTimes[id]; });
+        previewEdit = null;
+        return true;
+    }
+
+    // ไม่มี previewEdit → ใช้อัลกอริทึมปกติ
+    const sorted = _sortedQueue();
+    const ids = sorted.slice(0, 4);
+    ids.forEach(id => { waitingQueue = waitingQueue.filter(x=>x!==id); delete queueTimes[id]; });
+    previewEdit = null;
     const group = ids.map(id => players.find(p=>p.id===id)).filter(Boolean);
-    const ss = arr => arr.reduce((s,p)=>s+p.skill,0);
+    const ss = arr => arr.reduce((s,p)=>s+(p.skill||3),0);
     const opts = [{t1:[group[0],group[1]],t2:[group[2],group[3]]},{t1:[group[0],group[2]],t2:[group[1],group[3]]},{t1:[group[0],group[3]],t2:[group[1],group[2]]}];
     opts.forEach(o => { o.bal = Math.abs(ss(o.t1)-ss(o.t2)); o.hist = (partnerHistory.includes([o.t1[0].id,o.t1[1].id].sort().join('-'))?1:0) + (partnerHistory.includes([o.t2[0].id,o.t2[1].id].sort().join('-'))?1:0); });
     opts.sort((a,b) => a.bal!==b.bal ? a.bal-b.bal : a.hist-b.hist);
@@ -1137,7 +1147,7 @@ function assignKoMatches() {
 // MANUAL TEAM EDIT
 // ================================================================
 function openEditCourt(courtId) {
-    if (!isHost) return;
+    if (!isHost && !isAdmin) return;
     const court = courts.find(c => c.id === courtId);
     if (!court || court.status !== 'playing') return;
     editingCourtId = courtId;
@@ -1263,8 +1273,11 @@ function renderQueue() {
     if (currentMode === 1) {
         badge.innerText = waitingQueue.length;
         if (!waitingQueue.length) { el.innerHTML = '<p class="text-slate-300 text-xs">ไม่มีผู้เล่นรอ</p>'; return; }
-        const sorted = waitingQueue.map(id => players.find(p=>p.id===id)).filter(Boolean).sort((a,b) => a.games-b.games);
-        const nF = sorted.slice(0,4).map(p=>p.id);
+        // เรียงตาม games asc → รอนานกว่าก่อน (FIFO)
+        const sorted = _sortedQueue().map(id => players.find(p=>p.id===id)).filter(Boolean);
+        // ไฮไลต์ "next" ตาม previewEdit (ถ้ามี) ไม่งั้นใช้ top-4
+        _ensurePreviewEdit();
+        const nF = previewEdit ? previewEdit.teamIds : sorted.slice(0,4).map(p=>p.id);
         const chips = sorted.map(p => {
             const isN = nF.includes(p.id) && waitingQueue.length>=4;
             const wt = formatWaitTime(p.id);
@@ -1309,17 +1322,22 @@ function formatWaitTime(id) {
     return Math.floor(mins/60) + 'ชม.' + (mins%60 > 0 ? (mins%60) + 'น.' : '');
 }
 
-// ── Preview next match (mode 1) ───────────────────────────────────
-function previewNextMatch() {
-    if (currentMode !== 1 || waitingQueue.length < 4) return '';
-    const _qOrder = [...waitingQueue];
-    const sorted = [...waitingQueue].sort((a,b) => {
+// ── Preview next match (mode 1) — interactive with full pool ──────
+
+// เรียงคิวตามเกมน้อยไปมาก ถ้าเท่ากัน → รอนานกว่าได้ก่อน
+function _sortedQueue() {
+    return [...waitingQueue].sort((a, b) => {
         const pA = players.find(p=>p.id===a), pB = players.find(p=>p.id===b);
         if (!pA||!pB) return 0;
-        return pA.games !== pB.games ? pA.games - pB.games : _qOrder.indexOf(a) - _qOrder.indexOf(b);
+        if (pA.games !== pB.games) return pA.games - pB.games;
+        // รอนานกว่า (timestamp น้อยกว่า) → ขึ้นก่อน
+        const tA = queueTimes[a] || Date.now(), tB = queueTimes[b] || Date.now();
+        return tA - tB;
     });
-    const group = sorted.slice(0,4).map(id => players.find(p=>p.id===id)).filter(Boolean);
-    if (group.length < 4) return '';
+}
+
+function _bestPairingFrom4(group) {
+    if (group.length < 4) return null;
     const ss = arr => arr.reduce((s,p)=>s+(p.skill||3),0);
     const opts = [
         {t1:[group[0],group[1]],t2:[group[2],group[3]]},
@@ -1327,23 +1345,119 @@ function previewNextMatch() {
         {t1:[group[0],group[3]],t2:[group[1],group[2]]}
     ];
     opts.forEach(o => {
-        o.bal = Math.abs(ss(o.t1)-ss(o.t2));
+        o.bal  = Math.abs(ss(o.t1)-ss(o.t2));
         o.hist = (partnerHistory.includes([o.t1[0].id,o.t1[1].id].sort().join('-'))?1:0) +
                  (partnerHistory.includes([o.t2[0].id,o.t2[1].id].sort().join('-'))?1:0);
     });
     opts.sort((a,b) => a.bal!==b.bal ? a.bal-b.bal : a.hist-b.hist);
     const best = opts[0];
-    const pairTag = (pair) => {
-        const cnt = pairCount(pair);
-        return `${pair[0].name} &amp; ${pair[1].name}${cnt>0?` <span class="opacity-60 text-[9px]">🤝${cnt}</span>`:''}`;
+    return [best.t1[0].id, best.t1[1].id, best.t2[0].id, best.t2[1].id];
+}
+
+function _ensurePreviewEdit() {
+    if (currentMode !== 1 || waitingQueue.length < 4) { previewEdit = null; return; }
+    // ถ้า previewEdit ยังใช้ได้ (ทุก teamId ยังอยู่ใน queue) → อัปเดตแค่ pool
+    if (previewEdit && previewEdit.teamIds.every(id => waitingQueue.includes(id))) {
+        // อัปเดต poolIds ให้ตรงกับ queue ปัจจุบัน (ลบคนที่ถูกดึงออกแล้ว)
+        previewEdit.poolIds = _sortedQueue().filter(id => !previewEdit.teamIds.includes(id));
+        return;
+    }
+    // สร้างใหม่
+    const sorted = _sortedQueue();
+    const group  = sorted.slice(0,4).map(id=>players.find(p=>p.id===id)).filter(Boolean);
+    const teamIds = _bestPairingFrom4(group);
+    if (!teamIds) { previewEdit = null; return; }
+    const poolIds = sorted.slice(4);
+    previewEdit = { teamIds, poolIds, selected: null };
+}
+
+// selected = null | { src: 'team'|'pool', idx: number }
+function previewSwap(src, idx) {
+    if (!previewEdit) return;
+    const sel = previewEdit.selected;
+    if (!sel) {
+        previewEdit.selected = { src, idx };
+    } else if (sel.src === src && sel.idx === idx) {
+        previewEdit.selected = null; // ยกเลิก
+    } else {
+        // ดึง id ของทั้งสอง
+        const getArr  = s => s === 'team' ? previewEdit.teamIds : previewEdit.poolIds;
+        const idA = getArr(sel.src)[sel.idx];
+        const idB = getArr(src)[idx];
+        getArr(sel.src)[sel.idx] = idB;
+        getArr(src)[idx]         = idA;
+        previewEdit.selected = null;
+    }
+    renderQueue();
+}
+
+function previewResetPairing() {
+    previewEdit = null;
+    _ensurePreviewEdit();
+    renderQueue();
+}
+
+function fillCourtFromPreview() {
+    if (!previewEdit) return;
+    const court = courts.find(c => c.status === 'idle');
+    if (!court) { showToast('ไม่มีสนามว่าง 😅'); return; }
+    const { teamIds } = previewEdit;
+    court.teamA = [players.find(p=>p.id===teamIds[0]), players.find(p=>p.id===teamIds[1])].filter(Boolean);
+    court.teamB = [players.find(p=>p.id===teamIds[2]), players.find(p=>p.id===teamIds[3])].filter(Boolean);
+    if (court.teamA.length < 2 || court.teamB.length < 2) { showToast('ผู้เล่นไม่ครบ'); return; }
+    court.status = 'playing'; court.result = null;
+    teamIds.forEach(id => { waitingQueue = waitingQueue.filter(x=>x!==id); delete queueTimes[id]; });
+    previewEdit = null;
+    save(); renderSession();
+}
+
+function previewNextMatch() {
+    if (currentMode !== 1 || waitingQueue.length < 4) return '';
+    _ensurePreviewEdit();
+    if (!previewEdit) return '';
+    const priv = isHost || isAdmin;
+    const { teamIds, poolIds, selected } = previewEdit;
+
+    const isSel = (src, idx) => selected && selected.src === src && selected.idx === idx;
+    const chip = (src, idx, id) => {
+        const p = players.find(x=>x.id===id); if (!p) return '';
+        const isTeamA = src === 'team' && idx < 2;
+        const isTeamB = src === 'team' && idx >= 2;
+        const selNow  = isSel(src, idx);
+        let bg, text;
+        if (selNow)        { bg = 'bg-yellow-100 ring-2 ring-yellow-400'; text = 'text-yellow-700'; }
+        else if (isTeamA)  { bg = 'bg-indigo-50';  text = 'text-indigo-700'; }
+        else if (isTeamB)  { bg = 'bg-rose-50';    text = 'text-rose-600'; }
+        else               { bg = selected ? 'bg-slate-100 ring-1 ring-slate-300' : 'bg-slate-100'; text = 'text-slate-600'; }
+        const cursor = priv ? 'cursor-pointer active:scale-95' : '';
+        const click  = priv ? `onclick="previewSwap('${src}',${idx})"` : '';
+        const wtTag  = src === 'pool' ? (() => { const w = formatWaitTime(id); return w ? ` <span style="font-size:9px;opacity:.6">⏱${w}</span>` : ''; })() : '';
+        return `<span class="${bg} ${text} ${cursor} font-bold text-[11px] px-2 py-1 rounded-xl transition-all inline-block select-none" ${click}>${p.name}${wtTag}</span>`;
     };
-    return `<div class="mt-3 pt-2.5 border-t border-slate-100">
-        <div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2">&#128064; ดูล่วงหน้า — คิวถัดไป</div>
-        <div class="flex items-center gap-2 flex-wrap text-[11px] font-bold">
-            <span class="bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-xl">${pairTag(best.t1)}</span>
+
+    const sA = teamIds.slice(0,2).map(id=>players.find(p=>p.id===id)).filter(Boolean).reduce((s,p)=>s+(p.skill||3),0);
+    const sB = teamIds.slice(2,4).map(id=>players.find(p=>p.id===id)).filter(Boolean).reduce((s,p)=>s+(p.skill||3),0);
+    const skillRow = priv ? ` <span class="text-slate-400 font-normal">&#11088;${sA} vs &#11088;${sB}</span>` : '';
+    const hint = selected ? `<p class="text-[10px] text-yellow-600 font-bold mt-1">&#128070; กดคนที่ 2 เพื่อสลับ · กดซ้ำเพื่อยกเลิก</p>` : '';
+
+    const poolHtml = poolIds.length && priv ? `
+        <div class="mt-2 pt-2 border-t border-slate-50">
+            <div class="text-[9px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">Pool คิวที่เหลือ</div>
+            <div class="flex flex-wrap gap-1.5">${poolIds.map((id,i)=>chip('pool',i,id)).join('')}</div>
+        </div>` : '';
+
+    const actionRow = priv ? `<div class="flex justify-end mt-2">
+        <button onclick="previewResetPairing()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 text-[11px] font-bold rounded-xl active:scale-95 transition-all flex items-center gap-1"><i data-lucide="rotate-ccw" class="w-3 h-3"></i> รีเซ็ต</button>
+    </div>` : '';
+
+    return `<div class="mt-3 pt-2.5 border-t border-slate-100 w-full">
+        <div class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-2">&#128064; ดูล่วงหน้า${priv ? ' — กดสลับได้' : ''}${skillRow}</div>
+        <div class="flex items-center gap-2 flex-wrap">
+            <div class="flex gap-1.5">${chip('team',0,teamIds[0])}${chip('team',1,teamIds[1])}</div>
             <span class="text-slate-300 font-black text-[10px]">VS</span>
-            <span class="bg-rose-50 text-rose-500 px-2.5 py-1 rounded-xl">${pairTag(best.t2)}</span>
+            <div class="flex gap-1.5">${chip('team',2,teamIds[2])}${chip('team',3,teamIds[3])}</div>
         </div>
+        ${hint}${poolHtml}${actionRow}
     </div>`;
 }
 
@@ -1449,14 +1563,14 @@ function clearAllStats() {
 
 // --- ฟังก์ชันอัปเดตค่าเงินเข้า State ---
 function updateCourtFee(val) {
-    if(!isHost) return;
+    if(!isHost && !isAdmin) return;
     courtFeeVal = parseFloat(val) || 0;
     showMoneyResult = false; 
     save();
 }
 
 function updatePayer(val) {
-    if(!isHost) return;
+    if(!isHost && !isAdmin) return;
     payerIdVal = val;
     showMoneyResult = false;
     save();
@@ -1465,7 +1579,7 @@ function updatePayer(val) {
 function renderMoneyPage() {
     const sel=document.getElementById('payerSelect');
     sel.innerHTML='<option value="">-- เลือกคนที่จ่ายก่อน --</option>'+ players.map(p=>`<option value="${p.id}" ${p.id===payerIdVal?'selected':''}>${p.name}</option>`).join('');
-    sel.disabled = !isHost;
+    sel.disabled = !isHost && !isAdmin;
 
     const feeInp = document.getElementById('courtFee');
     feeInp.value = courtFeeVal;
@@ -1475,7 +1589,7 @@ function renderMoneyPage() {
     const btn = document.getElementById('splitByGamesBtn');
     const tog = document.getElementById('splitByGamesToggle');
     if (btn) {
-        btn.className = `host-only w-full flex items-center justify-between px-4 py-3 rounded-2xl border-2 mb-3 transition-all ${splitByGames?'border-emerald-400 bg-emerald-50':'border-slate-200 bg-slate-50'}`;
+        btn.className = `priv-only w-full flex items-center justify-between px-4 py-3 rounded-2xl border-2 mb-3 transition-all ${splitByGames?'border-emerald-400 bg-emerald-50':'border-slate-200 bg-slate-50'}`;
         tog.className = `w-10 h-6 rounded-full transition-all flex items-center px-1 ${splitByGames?'bg-emerald-400 justify-end':'bg-slate-200 justify-start'}`;
     }
 
@@ -1510,11 +1624,11 @@ function renderShuttleList(){
     b.classList.remove('hidden'); lucide.createIcons();
 }
 
-function addShuttleEntry(){if(!isHost)return;shuttleEntries.push({id:Math.random().toString(36).substr(2,9),ownerId:'',qty:1,price:20}); showMoneyResult=false; save(); renderShuttleList();}
-function rmShuttle(id){if(!isHost)return;shuttleEntries=shuttleEntries.filter(e=>e.id!==id); showMoneyResult=false; save(); renderShuttleList();}
-function updateShuttleOwner(id,v){if(!isHost)return;const e=shuttleEntries.find(x=>x.id===id);if(e)e.ownerId=v; showMoneyResult=false; save(); renderShuttleList();}
-function updateShuttlePrice(id,v){if(!isHost)return;const e=shuttleEntries.find(x=>x.id===id);if(e)e.price=Math.max(1,parseFloat(v)||1); showMoneyResult=false; save(); renderShuttleList();}
-function adjShuttle(id,d){if(!isHost)return;const e=shuttleEntries.find(x=>x.id===id);if(e)e.qty=Math.max(1,e.qty+d); showMoneyResult=false; save(); renderShuttleList();}
+function addShuttleEntry(){if(!isHost&&!isAdmin)return;shuttleEntries.push({id:Math.random().toString(36).substr(2,9),ownerId:'',qty:1,price:20}); showMoneyResult=false; save(); renderShuttleList();}
+function rmShuttle(id){if(!isHost&&!isAdmin)return;shuttleEntries=shuttleEntries.filter(e=>e.id!==id); showMoneyResult=false; save(); renderShuttleList();}
+function updateShuttleOwner(id,v){if(!isHost&&!isAdmin)return;const e=shuttleEntries.find(x=>x.id===id);if(e)e.ownerId=v; showMoneyResult=false; save(); renderShuttleList();}
+function updateShuttlePrice(id,v){if(!isHost&&!isAdmin)return;const e=shuttleEntries.find(x=>x.id===id);if(e)e.price=Math.max(1,parseFloat(v)||1); showMoneyResult=false; save(); renderShuttleList();}
+function adjShuttle(id,d){if(!isHost&&!isAdmin)return;const e=shuttleEntries.find(x=>x.id===id);if(e)e.qty=Math.max(1,e.qty+d); showMoneyResult=false; save(); renderShuttleList();}
 
 function renderSplitPlayers(){
     const l=document.getElementById('splitPlayerList');
@@ -1525,12 +1639,12 @@ function renderSplitPlayers(){
     }).join('');
 }
 
-function toggleSplit(id){if(!isHost)return;splitSelected[id]=!splitSelected[id]; showMoneyResult=false; save(); renderSplitPlayers();}
-function toggleAllSplit(v){if(!isHost)return;players.forEach(p=>splitSelected[p.id]=v); showMoneyResult=false; save(); renderSplitPlayers();}
-function toggleSplitByGames(){if(!isHost)return; splitByGames=!splitByGames; showMoneyResult=false; save(); renderMoneyPage();}
+function toggleSplit(id){if(!isHost&&!isAdmin)return;splitSelected[id]=!splitSelected[id]; showMoneyResult=false; save(); renderSplitPlayers();}
+function toggleAllSplit(v){if(!isHost&&!isAdmin)return;players.forEach(p=>splitSelected[p.id]=v); showMoneyResult=false; save(); renderSplitPlayers();}
+function toggleSplitByGames(){if(!isHost&&!isAdmin)return; splitByGames=!splitByGames; showMoneyResult=false; save(); renderMoneyPage();}
 
 function calculateMoney(){
-    if(!isHost) return;
+    if(!isHost && !isAdmin) return;
     if(!payerIdVal){alert('เลือกคนจ่ายก่อน!');return;}
     const splitters=players.filter(p=>splitSelected[p.id]);
     if(!splitters.length){alert('เลือกคนหาร!');return;}
