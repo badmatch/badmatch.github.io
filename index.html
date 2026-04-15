@@ -75,6 +75,18 @@
         body.is-host .host-only-flex.hidden,
         body.is-host .host-only-inline.hidden { display: none !important; }
 
+        /* Admin-only: shown when body.is-admin */
+        .admin-only      { display: none !important; }
+        body.is-admin .admin-only      { display: block !important; }
+        body.is-admin .admin-only.hidden { display: none !important; }
+
+        /* Privileged (host OR admin) */
+        .priv-only       { display: none !important; }
+        .priv-only-flex  { display: none !important; }
+        body.is-host .priv-only, body.is-admin .priv-only { display: block !important; }
+        body.is-host .priv-only-flex, body.is-admin .priv-only-flex { display: flex !important; }
+        body.is-host .priv-only.hidden, body.is-admin .priv-only.hidden { display: none !important; }
+
         /* Live badge pulse */
         @keyframes livepulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
         .live-badge { animation: livepulse 1.5s infinite; }
@@ -195,7 +207,7 @@
                     </button>
                 </div>
                 <div id="guestBadge" class="hidden text-[10px] text-amber-600 font-bold mt-0.5 flex items-center justify-end gap-1">
-                    <span class="live-badge w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span> LIVE · Guest
+                    <span class="live-badge w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span> LIVE · <span id="guestRoleName">Guest</span>
                     <button onclick="leaveRoom()" class="text-slate-300 hover:text-red-400 font-bold ml-1">· ออก</button>
                 </div>
                 <button onclick="leaveRoom()" class="host-only text-[10px] text-slate-300 hover:text-red-400 font-bold mt-0.5 block text-right">ปิดห้อง</button>
@@ -275,7 +287,7 @@
                             <span class="font-black text-slate-700 text-sm">คิวรอ</span>
                             <span id="queueCountBadge" class="bg-amber-100 text-amber-700 font-black text-xs px-2 py-0.5 rounded-full">0</span>
                         </div>
-                        <button onclick="toggleSetup()" class="host-only text-[10px] text-slate-400 hover:text-indigo-500 font-bold flex items-center gap-1 transition-colors"><i data-lucide="users" class="w-3 h-3"></i> จัดการก๊วน</button>
+                        <button onclick="toggleSetup()" class="priv-only text-[10px] text-slate-400 hover:text-indigo-500 font-bold flex items-center gap-1 transition-colors"><i data-lucide="users" class="w-3 h-3"></i> จัดการก๊วน</button>
                     </div>
                     <div id="queueList" class="flex flex-wrap gap-2 min-h-[32px] items-center"></div>
                 </div>
@@ -371,8 +383,11 @@ let roomId    = null;
 let roomCode  = null;
 let hostToken = null;
 let isHost    = false;
+let isAdmin   = false;
+let myPlayerName = '';   // ชื่อที่ใช้ join (เก็บไว้เช็ค admin)
 let realtimeChannel = null;
 let _syncTimeout    = null;
+let _queueTimerInterval = null;
 
 // ================================================================
 // GAME STATE (รวมข้อมูลการคิดเงิน)
@@ -389,6 +404,7 @@ let teamQueue      = [];
 let mode2NeedsReset = false;
 let koState = { round: 1, matches: [], winners: [], losers: [] };
 let editingCourtId = null;
+let queueTimes = {};   // { playerId: timestamp_ms } เวลาเริ่มรอ
 
 // Money States
 let shuttleEntries = [];
@@ -404,7 +420,7 @@ function resetGameState() {
     waitingQueue = []; sessionActive = false; currentMode = 1;
     fixedTeams = []; teamQueue = []; mode2NeedsReset = false;
     koState = { round: 1, matches: [], winners: [], losers: [] };
-    editingCourtId = null;
+    editingCourtId = null; queueTimes = {};
     courtFeeVal = 0; payerIdVal = ''; showMoneyResult = false; splitByGames = false;
 }
 
@@ -416,7 +432,8 @@ function getStateObj() {
         players, courts, waitingQueue, sessionActive, currentMode,
         fixedTeams, teamQueue, mode2NeedsReset, koState,
         partnerHistory, opponentHistory, shuttleEntries, splitSelected,
-        courtFeeVal, payerIdVal, showMoneyResult, splitByGames // Sync ค่าเงิน
+        courtFeeVal, payerIdVal, showMoneyResult, splitByGames,
+        queueTimes
     };
 }
 
@@ -444,6 +461,7 @@ function loadStateFromObj(state) {
     payerIdVal       = state.payerIdVal       || '';
     showMoneyResult  = state.showMoneyResult  || false;
     splitByGames     = state.splitByGames     || false;
+    queueTimes       = state.queueTimes       || {};
 
     players.forEach(p => {
         if (!p.wins)   p.wins   = 0;
@@ -558,20 +576,21 @@ async function joinRoom() {
             throw new Error("ไม่พบห้องนี้ หรือระบบฐานข้อมูลกำลังบล็อกการค้นหา (ติด RLS)");
         }
 
-        roomId = response.data[0].id; 
-        roomCode = response.data[0].code; 
-        hostToken = null; 
+        roomId = response.data[0].id;
+        roomCode = response.data[0].code;
+        hostToken = null;
         isHost = false;
-        sessionStorage.setItem('bm_room', JSON.stringify({ roomId, roomCode, hostToken: null, isHost: false }));
-        
+        myPlayerName = name || '';
+        sessionStorage.setItem('bm_room', JSON.stringify({ roomId, roomCode, hostToken: null, isHost: false, myPlayerName }));
+
         let state = response.data[0].session_state || {};
-        
+
         // ถ้า Guest กรอกชื่อมา ให้เพิ่มตัวเองลง Database ทันที
         if (name) {
             if (!state.players) state.players = [];
             if (!state.players.find(p => p.name === name)) {
                 const id = Math.random().toString(36).substr(2,9);
-                state.players.push({ id, name, skill, games:0, wins:0, losses:0, draws:0 });
+                state.players.push({ id, name, skill, games:0, wins:0, losses:0, draws:0, admin:false });
                 if (!state.splitSelected) state.splitSelected = {};
                 state.splitSelected[id] = true;
                 if (state.sessionActive && state.currentMode === 1) {
@@ -623,17 +642,32 @@ function enterApp() {
 
     if (isHost) {
         document.body.classList.add('is-host');
+        document.body.classList.remove('is-admin');
         document.getElementById('guestBadge').classList.add('hidden');
         document.getElementById('guestWaitMsg').classList.add('hidden');
     } else {
         document.body.classList.remove('is-host');
+        const adminPlayer = myPlayerName ? players.find(p => p.name === myPlayerName && p.admin) : null;
+        isAdmin = !!adminPlayer;
+        if (isAdmin) {
+            document.body.classList.add('is-admin');
+            document.getElementById('guestRoleName').textContent = 'Admin 👑';
+            document.getElementById('guestWaitMsg').classList.add('hidden');
+        } else {
+            document.body.classList.remove('is-admin');
+            document.getElementById('guestRoleName').textContent = 'Guest';
+            document.getElementById('guestWaitMsg').classList.remove('hidden');
+        }
         document.getElementById('guestBadge').classList.remove('hidden');
-        document.getElementById('guestWaitMsg').classList.remove('hidden');
     }
 
     subscribeToRoom();
     renderPlayers();
     updateModeDesc();
+
+    // อัปเดตเวลารอทุก 60 วินาที
+    if (_queueTimerInterval) clearInterval(_queueTimerInterval);
+    _queueTimerInterval = setInterval(() => { if (sessionActive && currentMode === 1) renderQueue(); }, 60000);
 
     if (sessionActive) {
         document.getElementById('setupPanel').classList.add('hidden');
@@ -669,6 +703,17 @@ function subscribeToRoom() {
             }
             
             loadStateFromObj(remoteState);
+            // อัปเดตสถานะ admin เมื่อ state เปลี่ยน
+            const _ap = myPlayerName ? players.find(p => p.name === myPlayerName && p.admin) : null;
+            isAdmin = !!_ap;
+            if (isAdmin) {
+                document.body.classList.add('is-admin');
+                document.getElementById('guestRoleName').textContent = 'Admin 👑';
+                document.getElementById('guestWaitMsg').classList.add('hidden');
+            } else {
+                document.body.classList.remove('is-admin');
+                document.getElementById('guestRoleName').textContent = 'Guest';
+            }
             renderPlayers();
             if (sessionActive) {
                 document.getElementById('setupPanel').classList.add('hidden');
@@ -745,6 +790,7 @@ async function leaveRoom() {
             return;
         }
         roomId = s.roomId; roomCode = s.roomCode; hostToken = s.hostToken; isHost = s.isHost;
+        myPlayerName = s.myPlayerName || '';
         loadStateFromObj(data.session_state);
         enterApp();
     } catch(e) {
@@ -821,14 +867,16 @@ function updateModeDesc() {
 
 // ── Rest status ───────────────────────────────────────────────────
 function toggleRest(id) {
-    if (!isHost) return;
+    if (!isHost && !isAdmin) return;
     const p = players.find(p => p.id === id);
     if (!p) return;
     p.resting = !p.resting;
     if (p.resting) {
         waitingQueue = waitingQueue.filter(x => x !== id);
+        delete queueTimes[id];
     } else if (sessionActive && currentMode === 1 && !waitingQueue.includes(id)) {
         waitingQueue.push(id);
+        queueTimes[id] = Date.now();
     }
     if (sessionActive) renderSession();
     save();
@@ -847,9 +895,9 @@ function addPlayer() {
     }
 
     const id = Math.random().toString(36).substr(2,9);
-    players.push({ id, name, skill, games:0, wins:0, losses:0, draws:0 });
+    players.push({ id, name, skill, games:0, wins:0, losses:0, draws:0, admin:false });
     splitSelected[id] = true;
-    if (sessionActive && currentMode === 1) { waitingQueue.push(id); renderSession(); }
+    if (sessionActive && currentMode === 1) { waitingQueue.push(id); queueTimes[id] = queueTimes[id] || Date.now(); renderSession(); }
     inp.value = ''; 
     save();
 }
@@ -864,7 +912,7 @@ function removePlayer(id) {
 }
 
 function adjustGames(id, delta) {
-    if (!isHost) return;
+    if (!isHost && !isAdmin) return;
     const p = players.find(p=>p.id===id);
     if (p) { p.games = Math.max(0, p.games+delta); save(); }
 }
@@ -875,24 +923,29 @@ function renderPlayers() {
     document.getElementById('playerCount').innerText = players.length;
     if (!players.length) { list.innerHTML = '<p class="text-slate-300 text-sm text-center py-6">ยังไม่มีสมาชิก</p>'; return; }
     const maxG = Math.max(...players.map(p=>p.games));
+    const priv = isHost || isAdmin;
     list.innerHTML = players.map(p => {
         const top = p.games===maxG && maxG>0;
-        const restBtn = isHost && sessionActive ? `<button onclick="toggleRest('${p.id}')" title="${p.resting?'กลับเข้าคิว':'พักชั่วคราว'}" class="w-6 h-6 flex items-center justify-center rounded-full ${p.resting?'bg-amber-100 text-amber-500':'bg-slate-100 text-slate-300 hover:text-amber-400'} text-xs transition-colors">&#9208;</button>` : '';
-        const ctrlBtns = isHost ? `
+        const restBtn = priv && sessionActive ? `<button onclick="toggleRest('${p.id}')" title="${p.resting?'กลับเข้าคิว':'พักชั่วคราว'}" class="w-6 h-6 flex items-center justify-center rounded-full ${p.resting?'bg-amber-100 text-amber-500':'bg-slate-100 text-slate-300 hover:text-amber-400'} text-xs transition-colors">&#9208;</button>` : '';
+        const skillEdit = priv ? `<button onclick="adjustSkill('${p.id}',-1)" class="w-5 h-5 flex items-center justify-center rounded-full bg-slate-100 hover:bg-amber-100 text-slate-400 text-xs transition-colors">&#8722;</button><span class="text-amber-400 text-xs font-bold px-0.5">&#11088;${p.skill}</span><button onclick="adjustSkill('${p.id}',1)" class="w-5 h-5 flex items-center justify-center rounded-full bg-slate-100 hover:bg-amber-100 text-slate-400 text-xs transition-colors">&#43;</button>` : '';
+        const adminBtn = isHost ? `<button onclick="toggleAdmin('${p.id}')" title="${p.admin?'ถอด Admin':'แต่งตั้ง Admin'}" class="w-6 h-6 flex items-center justify-center rounded-full ${p.admin?'bg-yellow-100 text-yellow-500':'bg-slate-100 text-slate-300 hover:text-yellow-400'} text-xs transition-colors">&#128081;</button>` : '';
+        const ctrlBtns = priv ? `
             ${restBtn}
             <button onclick="adjustGames('${p.id}',-1)" class="w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 hover:bg-red-100 text-slate-400 text-sm transition-colors">&#8722;</button>
             <span class="badge-game ${top?'top':''}" style="min-width:56px;justify-content:center">&#127918; ${p.games}</span>
             <button onclick="adjustGames('${p.id}',1)" class="w-6 h-6 flex items-center justify-center rounded-full bg-slate-100 hover:bg-indigo-100 text-slate-400 text-sm transition-colors">&#43;</button>
-            <button onclick="removePlayer('${p.id}')" class="text-slate-200 hover:text-red-400 ml-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+            ${adminBtn}
+            ${isHost ? `<button onclick="removePlayer('${p.id}')" class="text-slate-200 hover:text-red-400 ml-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
         ` : `<span class="badge-game ${top?'top':''}" style="min-width:56px;justify-content:center">&#127918; ${p.games}</span>`;
+        const adminBadge = p.admin ? `<span class="text-[9px] text-yellow-500 font-bold bg-yellow-50 px-1.5 rounded-full border border-yellow-200">Admin</span>` : '';
         return `<div class="player-row flex items-center justify-between py-2.5 px-2 rounded-xl ${p.resting?'opacity-40':''}">
-            <div class="flex items-center gap-2"><span class="text-sm font-bold text-slate-700">${p.name}</span><span class="text-indigo-300 text-xs">&#11088;${p.skill}</span>${p.resting?'<span class="text-[10px] text-amber-500 font-bold bg-amber-50 px-1.5 rounded-full border border-amber-200">พัก</span>':''}</div>
+            <div class="flex items-center gap-1.5">${skillEdit}<span class="text-sm font-bold text-slate-700">${p.name}</span>${adminBadge}${p.resting?'<span class="text-[10px] text-amber-500 font-bold bg-amber-50 px-1.5 rounded-full border border-amber-200">พัก</span>':''}</div>
             <div class="flex items-center gap-1.5">${ctrlBtns}</div></div>`;
     }).join(''); lucide.createIcons();
 }
 
 function toggleSetup() {
-    if (!isHost) return;
+    if (!isHost && !isAdmin) return;
     document.getElementById('setupPanel').classList.toggle('hidden');
 }
 
@@ -923,6 +976,8 @@ function startSession() {
 
     if (currentMode === 1) {
         waitingQueue = [...players].filter(p=>!p.resting).sort((a,b) => a.games-b.games).map(p=>p.id);
+        const _now = Date.now();
+        waitingQueue.forEach(id => { queueTimes[id] = queueTimes[id] || _now; });
         courts.forEach(c => tryFillCourtMode1(c));
     } else if (currentMode === 2) {
         initRotationMode();
@@ -951,6 +1006,7 @@ function tryFillCourtMode1(court) {
         return _qOrder.indexOf(a) - _qOrder.indexOf(b); // FIFO tiebreak
     });
     const ids = waitingQueue.splice(0, 4);
+    ids.forEach(id => delete queueTimes[id]);
     const group = ids.map(id => players.find(p=>p.id===id)).filter(Boolean);
     const ss = arr => arr.reduce((s,p)=>s+p.skill,0);
     const opts = [{t1:[group[0],group[1]],t2:[group[2],group[3]]},{t1:[group[0],group[2]],t2:[group[1],group[3]]},{t1:[group[0],group[3]],t2:[group[1],group[2]]}];
@@ -1100,7 +1156,7 @@ function closeEditModal() {
     m.classList.add('opacity-0'); c.classList.add('scale-95'); setTimeout(() => { m.classList.add('hidden'); editingCourtId = null; }, 300);
 }
 function saveEditCourt() {
-    if (!isHost) return;
+    if (!isHost && !isAdmin) return;
     const court = courts.find(c => c.id === editingCourtId); if (!court) return;
     const ids = [document.getElementById('editT1P1').value, document.getElementById('editT1P2').value, document.getElementById('editT2P1').value, document.getElementById('editT2P2').value];
     const vIds = ids.filter(id => id !== ""); if (new Set(vIds).size !== vIds.length) { alert('เลือกผู้เล่นซ้ำกันไม่ได้ครับ &#10060;'); return; }
@@ -1125,7 +1181,7 @@ function updateStats(team, isWin, isDraw) {
 }
 
 function finishCourt(courtId) {
-    if (!isHost) return;
+    if (!isHost && !isAdmin) return;
     const court = courts.find(c=>c.id===courtId);
     if (!court || !court.result) { showToast('เลือกผลการแข่งก่อนนะ &#127914;'); return; }
     const {teamA, teamB, result} = court;
@@ -1138,7 +1194,9 @@ function finishCourt(courtId) {
     save();
 
     if (currentMode === 1) {
-        [...court.teamA, ...court.teamB].forEach(p => { if (!waitingQueue.includes(p.id)) waitingQueue.push(p.id); });
+        [...court.teamA, ...court.teamB].forEach(p => {
+            if (!waitingQueue.includes(p.id)) { waitingQueue.push(p.id); queueTimes[p.id] = Date.now(); }
+        });
         court.teamA = []; court.teamB = []; court.status = 'idle'; court.result = null;
         tryFillCourtMode1(court);
     } else if (currentMode === 2) {
@@ -1171,14 +1229,14 @@ function finishCourt(courtId) {
 }
 
 function reshuffleCourt(courtId) {
-    if (!isHost) return;
+    if (!isHost && !isAdmin) return;
     const court = courts.find(c=>c.id===courtId); if (!court || currentMode !== 1) return;
-    [...court.teamA, ...court.teamB].forEach(p => { if (!waitingQueue.includes(p.id)) waitingQueue.push(p.id); });
+    [...court.teamA, ...court.teamB].forEach(p => { if (!waitingQueue.includes(p.id)) { waitingQueue.push(p.id); queueTimes[p.id] = Date.now(); } });
     court.status = 'idle'; court.teamA = []; court.teamB = []; tryFillCourtMode1(court);
     save(); renderSession();
 }
 function setResult(courtId, result) {
-    if (!isHost) return;
+    if (!isHost && !isAdmin) return;
     const court = courts.find(c=>c.id===courtId); if (!court || court.status!=='playing') return;
     court.result = court.result===result ? null : result;
     save(); renderSession();
@@ -1201,15 +1259,20 @@ function renderSession() {
 
 function renderQueue() {
     const badge = document.getElementById('queueCountBadge'); const el = document.getElementById('queueList');
+    const priv = isHost || isAdmin;
     if (currentMode === 1) {
         badge.innerText = waitingQueue.length;
         if (!waitingQueue.length) { el.innerHTML = '<p class="text-slate-300 text-xs">ไม่มีผู้เล่นรอ</p>'; return; }
         const sorted = waitingQueue.map(id => players.find(p=>p.id===id)).filter(Boolean).sort((a,b) => a.games-b.games);
         const nF = sorted.slice(0,4).map(p=>p.id);
-        el.innerHTML = sorted.map(p => {
+        const chips = sorted.map(p => {
             const isN = nF.includes(p.id) && waitingQueue.length>=4;
-            return `<div class="q-chip ${isN?'next':''}">${p.name} <span style="opacity:.55;font-size:10px">&#11088;${p.skill} · &#127918;${p.games}</span></div>`;
+            const wt = formatWaitTime(p.id);
+            const wtTag = wt ? `<span class="text-amber-500 font-bold" style="font-size:9px">⏱${wt}</span>` : '';
+            const skillTag = priv ? `<span style="opacity:.55;font-size:10px">&#11088;${p.skill} · </span>` : '';
+            return `<div class="q-chip ${isN?'next':''}">${p.name} ${skillTag}<span style="opacity:.55;font-size:10px">&#127918;${p.games}</span>${wtTag}</div>`;
         }).join('');
+        el.innerHTML = chips + previewNextMatch();
     } else if (currentMode === 2) {
         badge.innerText = teamQueue.length + ' ทีม';
         if (!teamQueue.length) { el.innerHTML = '<p class="text-slate-300 text-xs">ไม่มีทีมรอต่อคิว</p>'; return; }
@@ -1218,6 +1281,70 @@ function renderQueue() {
             return `<div class="q-chip ${idx===0?'next':''}"><span class="font-black text-indigo-500">${t.label}:</span> ${t.p1.name} &amp; ${t.p2.name}</div>`;
         }).join('');
     }
+}
+
+// ── Admin toggle ──────────────────────────────────────────────────
+function toggleAdmin(id) {
+    if (!isHost) return;
+    const p = players.find(p=>p.id===id); if (!p) return;
+    p.admin = !p.admin;
+    showToast(p.admin ? `👑 ${p.name} เป็น Admin แล้ว` : `${p.name} ถูกถอด Admin`);
+    save();
+}
+
+// ── Adjust skill ──────────────────────────────────────────────────
+function adjustSkill(id, delta) {
+    if (!isHost && !isAdmin) return;
+    const p = players.find(p=>p.id===id); if (!p) return;
+    p.skill = Math.min(5, Math.max(1, (p.skill||3) + delta));
+    save();
+}
+
+// ── Wait time display ─────────────────────────────────────────────
+function formatWaitTime(id) {
+    const t = queueTimes[id]; if (!t) return '';
+    const mins = Math.floor((Date.now() - t) / 60000);
+    if (mins < 1) return '';
+    if (mins < 60) return mins + 'นาที';
+    return Math.floor(mins/60) + 'ชม.' + (mins%60 > 0 ? (mins%60) + 'น.' : '');
+}
+
+// ── Preview next match (mode 1) ───────────────────────────────────
+function previewNextMatch() {
+    if (currentMode !== 1 || waitingQueue.length < 4) return '';
+    const _qOrder = [...waitingQueue];
+    const sorted = [...waitingQueue].sort((a,b) => {
+        const pA = players.find(p=>p.id===a), pB = players.find(p=>p.id===b);
+        if (!pA||!pB) return 0;
+        return pA.games !== pB.games ? pA.games - pB.games : _qOrder.indexOf(a) - _qOrder.indexOf(b);
+    });
+    const group = sorted.slice(0,4).map(id => players.find(p=>p.id===id)).filter(Boolean);
+    if (group.length < 4) return '';
+    const ss = arr => arr.reduce((s,p)=>s+(p.skill||3),0);
+    const opts = [
+        {t1:[group[0],group[1]],t2:[group[2],group[3]]},
+        {t1:[group[0],group[2]],t2:[group[1],group[3]]},
+        {t1:[group[0],group[3]],t2:[group[1],group[2]]}
+    ];
+    opts.forEach(o => {
+        o.bal = Math.abs(ss(o.t1)-ss(o.t2));
+        o.hist = (partnerHistory.includes([o.t1[0].id,o.t1[1].id].sort().join('-'))?1:0) +
+                 (partnerHistory.includes([o.t2[0].id,o.t2[1].id].sort().join('-'))?1:0);
+    });
+    opts.sort((a,b) => a.bal!==b.bal ? a.bal-b.bal : a.hist-b.hist);
+    const best = opts[0];
+    const pairTag = (pair) => {
+        const cnt = pairCount(pair);
+        return `${pair[0].name} &amp; ${pair[1].name}${cnt>0?` <span class="opacity-60 text-[9px]">🤝${cnt}</span>`:''}`;
+    };
+    return `<div class="mt-3 pt-2.5 border-t border-slate-100">
+        <div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2">&#128064; ดูล่วงหน้า — คิวถัดไป</div>
+        <div class="flex items-center gap-2 flex-wrap text-[11px] font-bold">
+            <span class="bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-xl">${pairTag(best.t1)}</span>
+            <span class="text-slate-300 font-black text-[10px]">VS</span>
+            <span class="bg-rose-50 text-rose-500 px-2.5 py-1 rounded-xl">${pairTag(best.t2)}</span>
+        </div>
+    </div>`;
 }
 
 function pairCount(pair) {
@@ -1232,7 +1359,7 @@ function renderCourtCards() {
         if (court.status==='idle') {
             if (currentMode === 3) return `<div class="court-card idle"><div class="px-5 py-4 text-center text-xs text-slate-400 font-bold">รอการแข่งขัน...</div></div>`;
             const canF = currentMode === 1 ? waitingQueue.length >= 4 : teamQueue.length >= 2;
-            const fillBtn = (canF && !mode2NeedsReset && isHost) ? `<button onclick="currentMode===1?tryFillCourtMode1(courts.find(c=>c.id===${court.id})):fillMode2Court(courts.find(c=>c.id===${court.id}),2);save();renderSession();" class="btn-indigo text-white text-xs font-black px-4 py-2.5 rounded-xl flex items-center gap-1.5"><i data-lucide="play" class="w-3.5 h-3.5"></i> เริ่มเลย</button>` : ``;
+            const fillBtn = (canF && !mode2NeedsReset && (isHost||isAdmin)) ? `<button onclick="currentMode===1?tryFillCourtMode1(courts.find(c=>c.id===${court.id})):fillMode2Court(courts.find(c=>c.id===${court.id}),2);save();renderSession();" class="btn-indigo text-white text-xs font-black px-4 py-2.5 rounded-xl flex items-center gap-1.5"><i data-lucide="play" class="w-3.5 h-3.5"></i> เริ่มเลย</button>` : ``;
             return `<div class="court-card idle pop-in"><div class="px-5 py-4 flex items-center justify-between"><div><div class="text-[11px] font-black text-slate-400 uppercase tracking-widest">COURT ${court.id}</div><div class="text-slate-300 text-xs mt-0.5">${canF ? 'คิวพร้อมแล้ว' : 'รอคิวเพิ่ม'}</div></div>${fillBtn}</div></div>`;
         }
         const sA = skillSum(court.teamA), sB = skillSum(court.teamB);
@@ -1242,9 +1369,10 @@ function renderCourtCards() {
             tA_l = `${fA ? fA.label : 'Team A'} ${fA && fA.streak>0 ? `<span class="text-[9px] bg-rose-100 text-rose-600 px-1 rounded">&#128293;ชนะ ${fA.streak}</span>`:''}`;
             tB_l = `${fB ? fB.label : 'Team B'} ${fB && fB.streak>0 ? `<span class="text-[9px] bg-rose-100 text-rose-600 px-1 rounded">&#128293;ชนะ ${fB.streak}</span>`:''}`;
         }
-        const editBtn = isHost ? `<button onclick="openEditCourt(${court.id})" class="p-1.5 text-slate-400 hover:text-indigo-500 rounded-xl transition-colors"><i data-lucide="user-cog" class="w-4 h-4"></i></button>` : '';
-        const reshuffleBtn = (isHost && currentMode === 1) ? `<button onclick="reshuffleCourt(${court.id})" class="p-1.5 text-slate-400 hover:text-indigo-500 rounded-xl"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>` : '';
-        const resultBtns = isHost ? `
+        const priv = isHost || isAdmin;
+        const editBtn = priv ? `<button onclick="openEditCourt(${court.id})" class="p-1.5 text-slate-400 hover:text-indigo-500 rounded-xl transition-colors"><i data-lucide="user-cog" class="w-4 h-4"></i></button>` : '';
+        const reshuffleBtn = (priv && currentMode === 1) ? `<button onclick="reshuffleCourt(${court.id})" class="p-1.5 text-slate-400 hover:text-indigo-500 rounded-xl"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>` : '';
+        const resultBtns = priv ? `
             <div class="px-4 pb-4 pt-1.5">
                 <div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2 text-center">ผลการแข่ง</div>
                 <div class="flex gap-2 mb-2.5">
@@ -1261,9 +1389,9 @@ function renderCourtCards() {
                 <div class="flex items-center gap-1.5"><span class="text-[10px] text-slate-400 font-bold mr-1">${currentMode === 1 ? 'บาลานซ์' : currentMode===2 ? 'วนรอบ' : '&#9876;&#65039; Knockout'}</span>${editBtn}${reshuffleBtn}</div>
             </div>
             <div class="flex flex-col sm:flex-row items-stretch">
-                <div class="team-a flex-1 px-5 py-3 text-center"><div class="text-indigo-500 text-[10px] font-black uppercase tracking-wider mb-1.5">${tA_l} · &#11088;${sA}</div>${court.teamA.map(p=>`<div class="font-black text-slate-800 text-sm leading-snug">${p.name}</div>`).join('')}${(()=>{const c=pairCount(court.teamA);return c>0?`<div class="mt-1 text-[10px] text-indigo-400 font-bold">&#129309; คู่กันมาแล้ว ${c} ครั้ง</div>`:''})()}</div>
+                <div class="team-a flex-1 px-5 py-3 text-center"><div class="text-indigo-500 text-[10px] font-black uppercase tracking-wider mb-1.5">${tA_l}${priv ? ` · &#11088;${sA}` : ''}</div>${court.teamA.map(p=>`<div class="font-black text-slate-800 text-sm leading-snug">${p.name}</div>`).join('')}${(()=>{const c=pairCount(court.teamA);return c>0?`<div class="mt-1 text-[10px] text-indigo-400 font-bold">&#129309; คู่กันมาแล้ว ${c} ครั้ง</div>`:''})()}</div>
                 <div class="flex items-center justify-center px-3 py-1"><span class="text-slate-300 font-black text-xs">VS</span></div>
-                <div class="team-b flex-1 px-5 py-3 text-center"><div class="text-rose-500 text-[10px] font-black uppercase tracking-wider mb-1.5">${tB_l} · &#11088;${sB}</div>${court.teamB.map(p=>`<div class="font-black text-slate-800 text-sm leading-snug">${p.name}</div>`).join('')}${(()=>{const c=pairCount(court.teamB);return c>0?`<div class="mt-1 text-[10px] text-rose-400 font-bold">&#129309; คู่กันมาแล้ว ${c} ครั้ง</div>`:''})()}</div>
+                <div class="team-b flex-1 px-5 py-3 text-center"><div class="text-rose-500 text-[10px] font-black uppercase tracking-wider mb-1.5">${tB_l}${priv ? ` · &#11088;${sB}` : ''}</div>${court.teamB.map(p=>`<div class="font-black text-slate-800 text-sm leading-snug">${p.name}</div>`).join('')}${(()=>{const c=pairCount(court.teamB);return c>0?`<div class="mt-1 text-[10px] text-rose-400 font-bold">&#129309; คู่กันมาแล้ว ${c} ครั้ง</div>`:''})()}</div>
             </div>
             ${resultBtns}
         </div>`;
