@@ -395,7 +395,6 @@ let _lastSyncId = null;  // ใช้ป้องกัน echo loop (ไม่�
 // ================================================================
 let players        = [];
 let partnerHistory = [];
-let opponentHistory = [];
 let courts         = [];
 let waitingQueue   = [];
 let sessionActive  = false;
@@ -417,7 +416,7 @@ let showMoneyResult = false;
 let splitByGames   = false;
 
 function resetGameState() {
-    players = []; partnerHistory = []; opponentHistory = [];
+    players = []; partnerHistory = [];
     shuttleEntries = []; splitSelected = {}; courts = [];
     waitingQueue = []; sessionActive = false; currentMode = 1;
     fixedTeams = []; teamQueue = []; mode2NeedsReset = false;
@@ -433,7 +432,7 @@ function getStateObj() {
     return {
         players, courts, waitingQueue, sessionActive, currentMode,
         fixedTeams, teamQueue, mode2NeedsReset, koState,
-        partnerHistory, opponentHistory, shuttleEntries, splitSelected,
+        partnerHistory, shuttleEntries, splitSelected,
         courtFeeVal, payerIdVal, showMoneyResult, splitByGames,
         queueTimes
     };
@@ -454,7 +453,6 @@ function loadStateFromObj(state) {
     mode2NeedsReset  = state.mode2NeedsReset  || false;
     koState          = state.koState          || { round: 1, matches: [], winners: [], losers: [] };
     partnerHistory   = state.partnerHistory   || [];
-    opponentHistory  = state.opponentHistory  || [];
     
     // โหลดค่าของหน้าคิดเงิน
     shuttleEntries   = state.shuttleEntries   || [];
@@ -488,14 +486,12 @@ async function syncToSupabase() {
     try {
         const stateWithId = { ...getStateObj(), _syncId: syncId };
         await sb.from('rooms').update({ session_state: stateWithId }).eq('id', roomId);
-        // Mirror to players table
-        for (const p of players) {
-            if (p.isGhost || (p.id && p.id.includes('_ghost'))) continue;
-            await sb.from('players').upsert({
-                room_id: roomId, player_key: p.id,
-                name: p.name, skill: p.skill,
-                games: p.games, wins: p.wins, losses: p.losses, draws: p.draws
-            }, { onConflict: 'room_id,player_key' });
+        // Mirror to players table — bulk upsert (1 request แทน N requests)
+        const playerRows = players
+            .filter(p => !p.isGhost && !(p.id && p.id.includes('_ghost')))
+            .map(p => ({ room_id: roomId, player_key: p.id, name: p.name, skill: p.skill, games: p.games, wins: p.wins, losses: p.losses, draws: p.draws }));
+        if (playerRows.length > 0) {
+            await sb.from('players').upsert(playerRows, { onConflict: 'room_id,player_key' });
         }
     } catch(e) { console.warn('Sync error:', e); }
 }
@@ -538,7 +534,7 @@ async function createRoom() {
         roomCode = response.data[0].code; 
         hostToken = token; 
         isHost = true;
-        sessionStorage.setItem('bm_room', JSON.stringify({ roomId, roomCode, hostToken, isHost }));
+        localStorage.setItem('bm_room', JSON.stringify({ roomId, roomCode, hostToken, isHost }));
         
         enterApp();
 
@@ -586,7 +582,7 @@ async function joinRoom() {
         hostToken = null;
         isHost = false;
         myPlayerName = name || '';
-        sessionStorage.setItem('bm_room', JSON.stringify({ roomId, roomCode, hostToken: null, isHost: false, myPlayerName }));
+        localStorage.setItem('bm_room', JSON.stringify({ roomId, roomCode, hostToken: null, isHost: false, myPlayerName }));
 
         let state = response.data[0].session_state || {};
 
@@ -698,6 +694,14 @@ function subscribeToRoom() {
             // [FIX] ป้องกัน echo — ถ้าเป็น update ที่ตัวเองเพิ่งส่งไป ให้ข้ามไปเลย
             if (remoteState._syncId && remoteState._syncId === _lastSyncId) return;
 
+            // แจ้ง Guest เมื่อ Host ปิดห้อง
+            if (payload.new.status === 'ended' && !isHost) {
+                localStorage.removeItem('bm_room');
+                showToast('🏠 Host ปิดห้องแล้ว กำลังออก...');
+                setTimeout(() => { window.location.href = window.location.pathname; }, 2500);
+                return;
+            }
+
             if (isHost) {
                 // [FIX] Host รับ update จาก Admin ได้แล้ว (ไม่ใช่แค่เวลามีผู้เล่นใหม่)
                 const remotePlayers = remoteState.players || [];
@@ -760,7 +764,7 @@ async function leaveRoom() {
     const msg = isHost ? 'ปิดห้องนี้? ผู้ร่วมทุกคนจะออกจากห้อง' : 'ออกจากห้องนี้?';
     if (!confirm(msg)) return;
     
-    sessionStorage.removeItem('bm_room');
+    localStorage.removeItem('bm_room');
     
     if (roomId && isHost) {
         Promise.race([
@@ -775,7 +779,7 @@ async function leaveRoom() {
 }
 
 // ================================================================
-// INIT: Restore session from sessionStorage on page reload
+// INIT: Restore session from localStorage on page reload
 // ================================================================
 // ── Deep link: ?room=XXXXXX auto-fill join form ───────────────────
 (function() {
@@ -790,7 +794,7 @@ async function leaveRoom() {
 })();
 
 (async function init() {
-    const saved = sessionStorage.getItem('bm_room');
+    const saved = localStorage.getItem('bm_room');
     if (!saved) return;
     // ซ่อน cards ทันทีระหว่างโหลด session (ไม่มี flicker)
     document.getElementById('createRoomCard').classList.add('hidden-card');
@@ -799,7 +803,7 @@ async function leaveRoom() {
         const s = JSON.parse(saved);
         const { data } = await sb.from('rooms').select('*').eq('id', s.roomId).eq('status', 'active').maybeSingle();
         if (!data) {
-            sessionStorage.removeItem('bm_room');
+            localStorage.removeItem('bm_room');
             document.getElementById('createRoomCard').classList.remove('hidden-card');
             document.getElementById('joinRoomCard').classList.remove('hidden-card');
             return;
@@ -809,7 +813,7 @@ async function leaveRoom() {
         loadStateFromObj(data.session_state);
         enterApp();
     } catch(e) {
-        sessionStorage.removeItem('bm_room');
+        localStorage.removeItem('bm_room');
         document.getElementById('createRoomCard').classList.remove('hidden-card');
         document.getElementById('joinRoomCard').classList.remove('hidden-card');
     }
@@ -976,7 +980,7 @@ function startSession() {
     if (players.length < 4) { alert('ต้องมีผู้เล่นอย่างน้อย 4 คน'); return; }
 
     sessionActive = true;
-    partnerHistory = []; opponentHistory = []; mode2NeedsReset = false;
+    partnerHistory = []; mode2NeedsReset = false;
 
     document.getElementById('modeText').innerText = currentMode === 1 ? 'Mode: 1. Shuffle (บาลานซ์)' : currentMode === 2 ? 'Mode: 2. Rotation (วนรอบ)' : 'Mode: 3. Knockout Tournament';
 
@@ -1063,7 +1067,6 @@ function initRotationMode(isReshuffle = false) {
         let tId = 'T' + timeKey + '_' + (idx + 1);
         fixedTeams.push({ id: tId, label: 'ทีม ' + (idx + 1), p1: pair[0], p2: pair[1], streak: 0, played: [] });
         teamQueue.push(tId);
-        let r1 = pair[0].id.replace('_ghost',''); let r2 = pair[1].id.replace('_ghost','');
     });
     courts.forEach(c => { c.status = 'idle'; c.teamA = []; c.teamB = []; c.teamA_id = null; c.teamB_id = null; c.result = null; });
     courts.forEach(c => { if (c.status === 'idle') fillMode2Court(c, 2); });
@@ -1094,9 +1097,11 @@ function fillMode2Court(court, needed, staySide) {
     if (needed === 2) {
         if (teamQueue.length >= 2) {
             let idA = teamQueue.shift(); let tA = fixedTeams.find(t=>t.id===idA);
+            if (!tA) { court.status = 'idle'; court.teamA = []; court.teamB = []; return; }
             let bIdx = 0; for(let i=0; i<teamQueue.length; i++) { if (!tA.played.includes(teamQueue[i])) { bIdx = i; break; } }
             let idB = teamQueue.splice(bIdx, 1)[0];
             let nA = fixedTeams.find(t=>t.id===idA); let nB = fixedTeams.find(t=>t.id===idB);
+            if (!nA || !nB) { court.status = 'idle'; court.teamA = []; court.teamB = []; return; }
             court.teamA = [nA.p1, nA.p2]; court.teamB = [nB.p1, nB.p2]; court.teamA_id = nA.id; court.teamB_id = nB.id; court.result = null; court.status = 'playing';
         } else { court.status = 'idle'; court.teamA = []; court.teamB = []; }
     } else if (needed === 1) {
@@ -1104,6 +1109,7 @@ function fillMode2Court(court, needed, staySide) {
             let sId = staySide === 'A' ? court.teamA_id : court.teamB_id; let tS = fixedTeams.find(t=>t.id===sId);
             let bIdx = 0; if(tS) { for(let i=0; i<teamQueue.length; i++) { if (!tS.played.includes(teamQueue[i])) { bIdx = i; break; } } }
             let idCh = teamQueue.splice(bIdx, 1)[0]; let ch = fixedTeams.find(t=>t.id===idCh);
+            if (!ch) { court.status = 'idle'; court.teamA = []; court.teamB = []; return; }
             if (staySide === 'A') { court.teamB = [ch.p1, ch.p2]; court.teamB_id = ch.id; } else { court.teamA = [ch.p1, ch.p2]; court.teamA_id = ch.id; }
             court.result = null; court.status = 'playing';
         } else { court.status = 'idle'; court.teamA = []; court.teamB = []; }
@@ -1188,7 +1194,8 @@ function saveEditCourt() {
     court.teamA = [getP(ids[0]), getP(ids[1])].filter(Boolean); court.teamB = [getP(ids[2]), getP(ids[3])].filter(Boolean);
     if (currentMode === 1) {
         let pIds = []; courts.forEach(c => { if (c.status === 'playing') { c.teamA.forEach(p => pIds.push(p.id)); c.teamB.forEach(p => pIds.push(p.id)); } });
-        waitingQueue = players.filter(p => !pIds.includes(p.id)).map(p => p.id);
+        // [FIX] ไม่เพิ่มคนที่กด "พัก" เข้าคิวตอน rebuild หลังแก้ทีมแมนวล
+        waitingQueue = players.filter(p => !pIds.includes(p.id) && !p.resting).map(p => p.id);
     }
     save(); closeEditModal(); renderSession(); showToast('ปรับทีมแมนวลเรียบร้อย! &#9881;&#65039;');
 }
@@ -1215,11 +1222,11 @@ function finishCourt(courtId) {
     _ph(teamA); _ph(teamB);
     // Record to matches table
     recordMatch(courtId, teamA, teamB, result, currentMode);
-    save();
 
     if (currentMode === 1) {
         [...court.teamA, ...court.teamB].forEach(p => {
-            if (!waitingQueue.includes(p.id)) { waitingQueue.push(p.id); queueTimes[p.id] = Date.now(); }
+            // [FIX] ไม่เพิ่มคนที่กด "พัก" กลับเข้าคิว
+            if (!p.resting && !waitingQueue.includes(p.id)) { waitingQueue.push(p.id); queueTimes[p.id] = Date.now(); }
         });
         court.teamA = []; court.teamB = []; court.status = 'idle'; court.result = null;
         tryFillCourtMode1(court);
@@ -1255,7 +1262,8 @@ function finishCourt(courtId) {
 function reshuffleCourt(courtId) {
     if (!isHost && !isAdmin) return;
     const court = courts.find(c=>c.id===courtId); if (!court || currentMode !== 1) return;
-    [...court.teamA, ...court.teamB].forEach(p => { if (!waitingQueue.includes(p.id)) { waitingQueue.push(p.id); queueTimes[p.id] = Date.now(); } });
+    // [FIX] ไม่เพิ่มคนที่กด "พัก" กลับเข้าคิวตอน reshuffle
+    [...court.teamA, ...court.teamB].forEach(p => { if (!p.resting && !waitingQueue.includes(p.id)) { waitingQueue.push(p.id); queueTimes[p.id] = Date.now(); } });
     court.status = 'idle'; court.teamA = []; court.teamB = []; tryFillCourtMode1(court);
     save(); renderSession();
 }
@@ -1528,7 +1536,7 @@ function renderCourtCards() {
 
 function clearHistory() {
     if (!isHost) return;
-    partnerHistory=[]; opponentHistory=[]; save(); showToast('ล้างประวัติแล้ว!');
+    partnerHistory=[]; save(); showToast('ล้างประวัติแล้ว!');
 }
 
 async function resetAll() {
@@ -1536,7 +1544,7 @@ async function resetAll() {
     if(!confirm('ล้างข้อมูลทั้งหมด?')) return;
     
     resetGameState();
-    sessionStorage.removeItem('bm_room');
+    localStorage.removeItem('bm_room');
     
     if (roomId) {
         Promise.race([
