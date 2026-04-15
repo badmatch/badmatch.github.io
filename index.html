@@ -388,6 +388,7 @@ let myPlayerName = '';   // ชื่อที่ใช้ join (เก็บไ
 let realtimeChannel = null;
 let _syncTimeout    = null;
 let _queueTimerInterval = null;
+let _lastSyncId = null;  // ใช้ป้องกัน echo loop (ไม่โหลด state ที่ตัวเองเพิ่งส่งไป)
 
 // ================================================================
 // GAME STATE (รวมข้อมูลการคิดเงิน)
@@ -475,15 +476,18 @@ function loadStateFromObj(state) {
 
 function save() {
     renderPlayers();
-    if (!roomId || !isHost) return;
+    if (!roomId || (!isHost && !isAdmin)) return;  // [FIX] Admin sync ได้แล้ว
     clearTimeout(_syncTimeout);
     _syncTimeout = setTimeout(() => syncToSupabase(), 250);
 }
 
 async function syncToSupabase() {
-    if (!roomId || !isHost) return;
+    if (!roomId || (!isHost && !isAdmin)) return;  // [FIX] Admin sync ได้แล้ว
+    const syncId = Math.random().toString(36).substr(2, 8);
+    _lastSyncId = syncId;  // จำ syncId ที่ส่งไป เพื่อป้องกัน echo
     try {
-        await sb.from('rooms').update({ session_state: getStateObj() }).eq('id', roomId);
+        const stateWithId = { ...getStateObj(), _syncId: syncId };
+        await sb.from('rooms').update({ session_state: stateWithId }).eq('id', roomId);
         // Mirror to players table
         for (const p of players) {
             if (p.isGhost || (p.id && p.id.includes('_ghost'))) continue;
@@ -690,19 +694,27 @@ function subscribeToRoom() {
             filter: `id=eq.${roomId}`
         }, (payload) => {
             const remoteState = payload.new.session_state || {};
-            
+
+            // [FIX] ป้องกัน echo — ถ้าเป็น update ที่ตัวเองเพิ่งส่งไป ให้ข้ามไปเลย
+            if (remoteState._syncId && remoteState._syncId === _lastSyncId) return;
+
             if (isHost) {
+                // [FIX] Host รับ update จาก Admin ได้แล้ว (ไม่ใช่แค่เวลามีผู้เล่นใหม่)
                 const remotePlayers = remoteState.players || [];
-                if (remotePlayers.length > players.length) {
-                    const newP = remotePlayers[remotePlayers.length - 1];
-                    loadStateFromObj(remoteState);
-                    renderPlayers();
-                    if (sessionActive) renderSession();
-                    showToast(`👋 ${newP ? newP.name : 'สมาชิกใหม่'} เข้าร่วมและลงชื่อแล้ว!`);
+                const isNewPlayer = remotePlayers.length > players.length;
+                const newP = isNewPlayer ? remotePlayers[remotePlayers.length - 1] : null;
+
+                loadStateFromObj(remoteState);
+                renderPlayers();
+                if (sessionActive) renderSession();
+
+                if (isNewPlayer && newP) {
+                    showToast(`👋 ${newP.name} เข้าร่วมและลงชื่อแล้ว!`);
                 }
-                return; // หยุดทำงานตรงนี้ เพื่อไม่ให้ Host โดนทับข้อมูลเวลาจัดทีม
+                lucide.createIcons();
+                return;
             }
-            
+
             loadStateFromObj(remoteState);
             // อัปเดตสถานะ admin เมื่อ state เปลี่ยน
             const _ap = myPlayerName ? players.find(p => p.name === myPlayerName && p.admin) : null;
@@ -714,6 +726,8 @@ function subscribeToRoom() {
             } else {
                 document.body.classList.remove('is-admin');
                 document.getElementById('guestRoleName').textContent = 'Guest';
+                // [FIX] แสดง guestWaitMsg กลับเมื่อหมด admin status
+                document.getElementById('guestWaitMsg').classList.remove('hidden');
             }
             renderPlayers();
             if (sessionActive) {
@@ -1583,7 +1597,7 @@ function renderMoneyPage() {
 
     const feeInp = document.getElementById('courtFee');
     feeInp.value = courtFeeVal;
-    feeInp.readOnly = !isHost;
+    feeInp.readOnly = !isHost && !isAdmin;  // [FIX] Admin แก้ค่าคอร์ทได้
 
     // sync toggle UI
     const btn = document.getElementById('splitByGamesBtn');
@@ -1602,22 +1616,23 @@ function renderShuttleList(){
     const l=document.getElementById('shuttleList'),e=document.getElementById('shuttleEmpty'),b=document.getElementById('shuttleSummaryBar');
     if(!shuttleEntries.length){l.innerHTML='';e.style.display='block';b.classList.add('hidden');return;}
     e.style.display='none'; let tQ=0,tV=0;
+    const priv = isHost || isAdmin;  // [FIX] Admin ใช้ระบบลูกแบดได้
     l.innerHTML=shuttleEntries.map(en=>{ const v=en.qty*en.price;tQ+=en.qty;tV+=v;
         return `<div class="shuttle-entry flex flex-wrap items-center gap-2">
-            <select ${isHost?`onchange="updateShuttleOwner('${en.id}',this.value)"`:'disabled'} class="flex-1 min-w-[110px] px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700">
+            <select ${priv?`onchange="updateShuttleOwner('${en.id}',this.value)"`:'disabled'} class="flex-1 min-w-[110px] px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700">
                 <option value="">-- เจ้าของลูก --</option>
                 ${players.map(p=>`<option value="${p.id}" ${p.id===en.ownerId?'selected':''}>${p.name}</option>`).join('')}
             </select>
             <div class="flex items-center bg-white border border-slate-200 rounded-xl px-1.5 py-1 gap-0.5">
-                ${isHost?`<button onclick="adjShuttle('${en.id}',-1)" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 font-black">&#8722;</button>`:''}
+                ${priv?`<button onclick="adjShuttle('${en.id}',-1)" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 font-black">&#8722;</button>`:''}
                 <span class="w-6 text-center font-black text-slate-700 text-sm">${en.qty}</span>
-                ${isHost?`<button onclick="adjShuttle('${en.id}',1)" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 font-black">&#43;</button>`:''}
+                ${priv?`<button onclick="adjShuttle('${en.id}',1)" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 font-black">&#43;</button>`:''}
             </div>
             <div class="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5">
-                <input type="number" value="${en.price}" min="1" ${isHost?`onchange="updateShuttlePrice('${en.id}',this.value)"`:'readonly'} class="w-14 text-center font-black text-emerald-700 text-sm bg-transparent focus:outline-none">
+                <input type="number" value="${en.price}" min="1" ${priv?`onchange="updateShuttlePrice('${en.id}',this.value)"`:'readonly'} class="w-14 text-center font-black text-emerald-700 text-sm bg-transparent focus:outline-none">
             </div>
             <span class="text-xs text-emerald-600 font-black w-14 text-right">${v.toLocaleString()}฿;</span>
-            ${isHost?`<button onclick="rmShuttle('${en.id}')" class="text-slate-300 hover:text-red-400"><i data-lucide="x" class="w-4 h-4"></i></button>`:''}
+            ${priv?`<button onclick="rmShuttle('${en.id}')" class="text-slate-300 hover:text-red-400"><i data-lucide="x" class="w-4 h-4"></i></button>`:''}
         </div>`;
     }).join('');
     document.getElementById('shuttleTotalText').innerText=`${tQ} ลูก = ${tV.toLocaleString()} ฿;`;
@@ -1635,7 +1650,9 @@ function renderSplitPlayers(){
     players.forEach(p=>{if(splitSelected[p.id]===undefined)splitSelected[p.id]=true;});
     l.innerHTML=players.map(p=>{ const on=splitSelected[p.id]!==false;
         const gameLabel = splitByGames ? `<span class="text-[10px] font-bold ml-auto ${on?'text-emerald-600':'text-slate-300'}">&#127918;${p.games}</span>` : '';
-        return `<button ${isHost?`onclick="toggleSplit('${p.id}')"`:'disabled'} class="flex items-center gap-2 px-3 py-2.5 rounded-2xl border-2 text-sm font-bold transition-all ${on?'border-emerald-400 bg-emerald-50 text-emerald-800':'border-slate-200 bg-white text-slate-400'}"><span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0 ${on?'bg-emerald-400 text-white':'bg-slate-200 text-transparent'}">&#10003;</span><span class="truncate">${p.name}</span>${gameLabel}</button>`;
+        // [FIX] Admin toggle หาร Split ได้แล้ว
+        const canToggle = isHost || isAdmin;
+        return `<button ${canToggle?`onclick="toggleSplit('${p.id}')"`:'disabled'} class="flex items-center gap-2 px-3 py-2.5 rounded-2xl border-2 text-sm font-bold transition-all ${on?'border-emerald-400 bg-emerald-50 text-emerald-800':'border-slate-200 bg-white text-slate-400'}"><span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0 ${on?'bg-emerald-400 text-white':'bg-slate-200 text-transparent'}">&#10003;</span><span class="truncate">${p.name}</span>${gameLabel}</button>`;
     }).join('');
 }
 
