@@ -476,7 +476,7 @@ function save() {
     renderPlayers();
     if (!roomId || (!isHost && !isAdmin)) return;  // [FIX] Admin sync ได้แล้ว
     clearTimeout(_syncTimeout);
-    _syncTimeout = setTimeout(() => syncToSupabase(), 250);
+    _syncTimeout = setTimeout(() => { _syncTimeout = null; syncToSupabase(); }, 250);
 }
 
 async function syncToSupabase() {
@@ -709,15 +709,37 @@ function subscribeToRoom() {
                 const isNewPlayer = remotePlayers.length > players.length;
                 const newP = isNewPlayer ? remotePlayers[remotePlayers.length - 1] : null;
 
+                // ถ้า Host มี pending sync ค้างอยู่ → ยกเลิกแล้วแจ้งเตือน (Admin อื่น sync มาก่อน)
+                if (_syncTimeout !== null) {
+                    clearTimeout(_syncTimeout);
+                    _syncTimeout = null;
+                    showToast('⚡ Admin บันทึกข้อมูลแล้ว — การแก้ไขที่ยังไม่บันทึกถูกยกเลิก');
+                }
+
                 loadStateFromObj(remoteState);
                 renderPlayers();
                 if (sessionActive) renderSession();
+
+                // อัปเดตหน้าคิดเงินและสถิติถ้า Host เปิดอยู่ (เช่น Admin แก้ข้อมูล)
+                if (document.getElementById('page-money').classList.contains('active')) {
+                    renderMoneyPage();
+                }
+                if (document.getElementById('page-stats').classList.contains('active')) {
+                    renderStats();
+                }
 
                 if (isNewPlayer && newP) {
                     showToast(`👋 ${newP.name} เข้าร่วมและลงชื่อแล้ว!`);
                 }
                 lucide.createIcons();
                 return;
+            }
+
+            // ถ้า Admin มี pending sync ค้างอยู่ → ยกเลิกแล้วแจ้งเตือน (Admin อื่น sync มาก่อน)
+            if (_syncTimeout !== null && isAdmin) {
+                clearTimeout(_syncTimeout);
+                _syncTimeout = null;
+                showToast('⚡ Admin อื่นบันทึกข้อมูลแล้ว — การแก้ไขที่ยังไม่บันทึกถูกยกเลิก');
             }
 
             loadStateFromObj(remoteState);
