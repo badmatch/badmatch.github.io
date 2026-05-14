@@ -91,6 +91,13 @@
         @keyframes livepulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
         .live-badge { animation: livepulse 1.5s infinite; }
 
+        /* Scoreboard */
+        .sb-score { font-size:clamp(4.5rem,18vw,8.5rem);font-weight:900;line-height:1;transition:color 0.3s; }
+        .card-score-btn { width:1.75rem;height:1.75rem;border-radius:.5rem;font-size:1.1rem;font-weight:900;display:flex;align-items:center;justify-content:center;transition:transform 0.1s;cursor:pointer;line-height:1;border:none; }
+        .card-score-btn:active { transform:scale(0.82); }
+        .sb-ctrl-btn { width:3.25rem;height:3.25rem;border-radius:.875rem;font-size:1.75rem;font-weight:900;display:flex;align-items:center;justify-content:center;transition:transform 0.1s,background 0.15s;cursor:pointer;border:none; }
+        .sb-ctrl-btn:active { transform:scale(0.86); }
+
         /* Landing page */
         #landingPage { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 60%, #ecfdf5 100%); padding: 1.25rem; transition: opacity 0.3s ease; }
         #landingPage.fading { opacity: 0; pointer-events: none; }
@@ -414,6 +421,8 @@ let courtFeeVal    = 0;
 let payerIdVal     = '';
 let showMoneyResult = false;
 let splitByGames   = false;
+let courtScores    = {};        // { [courtId]: { a: 0, b: 0 } }
+let scoreboardCourtId = null;  // court ที่เปิด fullscreen อยู่
 
 function resetGameState() {
     players = []; partnerHistory = [];
@@ -422,7 +431,7 @@ function resetGameState() {
     fixedTeams = []; teamQueue = []; mode2NeedsReset = false;
     koState = { round: 1, matches: [], winners: [], losers: [] };
     editingCourtId = null; queueTimes = {}; previewEdit = null;
-    courtFeeVal = 0; payerIdVal = ''; showMoneyResult = false; splitByGames = false;
+    courtFeeVal = 0; payerIdVal = ''; showMoneyResult = false; splitByGames = false; courtScores = {};
 }
 
 // ================================================================
@@ -434,7 +443,7 @@ function getStateObj() {
         fixedTeams, teamQueue, mode2NeedsReset, koState,
         partnerHistory, shuttleEntries, splitSelected,
         courtFeeVal, payerIdVal, showMoneyResult, splitByGames,
-        queueTimes
+        courtScores, queueTimes
     };
 }
 
@@ -461,6 +470,7 @@ function loadStateFromObj(state) {
     payerIdVal       = state.payerIdVal       || '';
     showMoneyResult  = state.showMoneyResult  || false;
     splitByGames     = state.splitByGames     || false;
+    courtScores      = state.courtScores      || {};
     queueTimes       = state.queueTimes       || {};
 
     players.forEach(p => {
@@ -727,6 +737,7 @@ function subscribeToRoom() {
                 if (document.getElementById('page-stats').classList.contains('active')) {
                     renderStats();
                 }
+                if (scoreboardCourtId !== null) renderScoreboard();
 
                 if (isNewPlayer && newP) {
                     showToast(`👋 ${newP.name} เข้าร่วมและลงชื่อแล้ว!`);
@@ -777,6 +788,7 @@ function subscribeToRoom() {
             if (document.getElementById('page-stats').classList.contains('active')) {
                 renderStats();
             }
+            if (scoreboardCourtId !== null) renderScoreboard();
 
             lucide.createIcons();
         })
@@ -1252,8 +1264,10 @@ function finishCourt(courtId) {
             if (!p.resting && !waitingQueue.includes(p.id)) { waitingQueue.push(p.id); queueTimes[p.id] = Date.now(); }
         });
         court.teamA = []; court.teamB = []; court.status = 'idle'; court.result = null;
+        courtScores[courtId] = { a: 0, b: 0 };
         tryFillCourtMode1(court);
     } else if (currentMode === 2) {
+        courtScores[courtId] = { a: 0, b: 0 };
         handleMode2Finish(court);
     } else if (currentMode === 3) {
         let m = koState.matches.find(x => x.id === court.koMatchId);
@@ -1262,6 +1276,7 @@ function finishCourt(courtId) {
             if(result === 'A' || result === 'D') { koState.winners.push(teamA); koState.losers.push(teamB); } else { koState.winners.push(teamB); koState.losers.push(teamA); }
         }
         court.teamA = []; court.teamB = []; court.status = 'idle'; court.koMatchId = null; court.koLabel = '';
+        courtScores[courtId] = { a: 0, b: 0 };
 
         if(koState.matches.every(x => x.done)) {
             if(koState.round === 1) {
@@ -1290,6 +1305,99 @@ function reshuffleCourt(courtId) {
     court.status = 'idle'; court.teamA = []; court.teamB = []; tryFillCourtMode1(court);
     save(); renderSession();
 }
+// ── Score System ──────────────────────────────────────────────────
+function adjustScore(courtId, team, delta) {
+    if (!isHost && !isAdmin) return;
+    if (!courtScores[courtId]) courtScores[courtId] = { a: 0, b: 0 };
+    courtScores[courtId][team] = Math.max(0, courtScores[courtId][team] + delta);
+    save();
+    renderCourtCards();
+    if (scoreboardCourtId === courtId) renderScoreboard();
+}
+
+function resetScore(courtId) {
+    if (!isHost && !isAdmin) return;
+    courtScores[courtId] = { a: 0, b: 0 };
+    save();
+    renderCourtCards();
+    if (scoreboardCourtId === courtId) renderScoreboard();
+}
+
+function openScoreboard(courtId) {
+    scoreboardCourtId = courtId;
+    document.getElementById('scoreboardOverlay').classList.remove('hidden');
+    renderScoreboard();
+}
+
+function closeScoreboard() {
+    scoreboardCourtId = null;
+    document.getElementById('scoreboardOverlay').classList.add('hidden');
+}
+
+function renderScoreboard() {
+    if (scoreboardCourtId === null) return;
+    const courtId = scoreboardCourtId;
+    const court = courts.find(c => c.id === courtId);
+    if (!court || court.status !== 'playing') { closeScoreboard(); return; }
+
+    const sc = courtScores[courtId] || { a: 0, b: 0 };
+    const winA = (sc.a >= 21 && (sc.b < 20 || sc.a - sc.b >= 2)) || sc.a >= 30;
+    const winB = (sc.b >= 21 && (sc.a < 20 || sc.b - sc.a >= 2)) || sc.b >= 30;
+    const priv = isHost || isAdmin;
+
+    let tA_l = 'ฝั่ง A', tB_l = 'ฝั่ง B';
+    if (currentMode === 2) {
+        const fA = fixedTeams.find(t => t.id === court.teamA_id);
+        const fB = fixedTeams.find(t => t.id === court.teamB_id);
+        if (fA) tA_l = fA.label;
+        if (fB) tB_l = fB.label;
+    }
+
+    const namesA = court.teamA.map(p => `<div class="text-white font-black text-base leading-tight">${p.name}</div>`).join('');
+    const namesB = court.teamB.map(p => `<div class="text-white font-black text-base leading-tight">${p.name}</div>`).join('');
+
+    const ctrlA = priv ? `
+        <div class="flex gap-3 mt-5">
+            <button onclick="adjustScore(${courtId},'a',-1)" class="sb-ctrl-btn bg-white/10 text-white">&#8722;</button>
+            <button onclick="adjustScore(${courtId},'a',1)"  class="sb-ctrl-btn bg-white/20 text-white">+</button>
+        </div>` : '';
+    const ctrlB = priv ? `
+        <div class="flex gap-3 mt-5">
+            <button onclick="adjustScore(${courtId},'b',-1)" class="sb-ctrl-btn bg-white/10 text-white">&#8722;</button>
+            <button onclick="adjustScore(${courtId},'b',1)"  class="sb-ctrl-btn bg-white/20 text-white">+</button>
+        </div>` : '';
+    const resetBtn = priv
+        ? `<div class="px-6 pb-8 flex-shrink-0"><button onclick="resetScore(${courtId})" class="w-full py-3 rounded-2xl bg-white/10 text-white/50 font-bold text-sm transition-all active:bg-white/20">&#8635; รีเซ็ตคะแนน</button></div>`
+        : `<div class="pb-8"></div>`;
+
+    document.getElementById('scoreboardContent').innerHTML = `
+        <div class="flex items-center justify-between px-5 pt-5 pb-0 flex-shrink-0">
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse flex-shrink-0"></span>
+                <span class="text-white/50 font-black text-xs uppercase tracking-widest">Court ${courtId} &nbsp;·&nbsp; Live</span>
+            </div>
+            <button onclick="closeScoreboard()" class="text-white/40 hover:text-white/80 font-black text-xl px-2 py-1 leading-none transition-colors">&#10005;</button>
+        </div>
+        <div class="flex flex-1 min-h-0">
+            <div class="flex-1 flex flex-col items-center justify-center px-4 py-6 ${winA ? 'bg-yellow-400/5' : ''}">
+                <div class="text-white/40 text-[10px] font-black uppercase tracking-widest mb-2">${tA_l}</div>
+                <div class="text-center mb-4">${namesA || '<div class="text-white/30 text-sm">—</div>'}</div>
+                <div class="sb-score ${winA ? 'text-yellow-400' : 'text-white'}">${sc.a}</div>
+                ${winA ? `<div class="mt-3 text-yellow-400 font-black text-base animate-pulse">&#127942; ชนะ!</div>` : '<div class="mt-3 h-6"></div>'}
+                ${ctrlA}
+            </div>
+            <div class="w-px bg-white/10 my-8 flex-shrink-0"></div>
+            <div class="flex-1 flex flex-col items-center justify-center px-4 py-6 ${winB ? 'bg-yellow-400/5' : ''}">
+                <div class="text-white/40 text-[10px] font-black uppercase tracking-widest mb-2">${tB_l}</div>
+                <div class="text-center mb-4">${namesB || '<div class="text-white/30 text-sm">—</div>'}</div>
+                <div class="sb-score ${winB ? 'text-yellow-400' : 'text-white'}">${sc.b}</div>
+                ${winB ? `<div class="mt-3 text-yellow-400 font-black text-base animate-pulse">&#127942; ชนะ!</div>` : '<div class="mt-3 h-6"></div>'}
+                ${ctrlB}
+            </div>
+        </div>
+        ${resetBtn}`;
+}
+
 function setResult(courtId, result) {
     if (!isHost && !isAdmin) return;
     const court = courts.find(c=>c.id===courtId); if (!court || court.status!=='playing') return;
@@ -1531,6 +1639,30 @@ function renderCourtCards() {
         const priv = isHost || isAdmin;
         const editBtn = priv ? `<button onclick="openEditCourt(${court.id})" class="p-1.5 text-slate-400 hover:text-indigo-500 rounded-xl transition-colors"><i data-lucide="user-cog" class="w-4 h-4"></i></button>` : '';
         const reshuffleBtn = (priv && currentMode === 1) ? `<button onclick="reshuffleCourt(${court.id})" class="p-1.5 text-slate-400 hover:text-indigo-500 rounded-xl"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>` : '';
+        const expandBtn = `<button onclick="openScoreboard(${court.id})" class="p-1.5 text-slate-400 hover:text-indigo-500 rounded-xl transition-colors" title="กระดานคะแนน"><i data-lucide="maximize-2" class="w-4 h-4"></i></button>`;
+        const sc = courtScores[court.id] || { a: 0, b: 0 };
+        const winA = (sc.a >= 21 && (sc.b < 20 || sc.a - sc.b >= 2)) || sc.a >= 30;
+        const winB = (sc.b >= 21 && (sc.a < 20 || sc.b - sc.a >= 2)) || sc.b >= 30;
+        const scoreSection = `
+            <div class="mx-4 mb-2 bg-slate-50 rounded-2xl px-4 py-2.5 flex items-center gap-2">
+                <div class="flex flex-col items-center flex-1">
+                    ${priv ? `<div class="flex items-center gap-1.5">
+                        <button onclick="adjustScore(${court.id},'a',-1)" class="card-score-btn bg-slate-200 text-slate-600">&#8722;</button>
+                        <span class="text-2xl font-black min-w-[2.25rem] text-center ${winA ? 'text-yellow-500' : 'text-indigo-600'}">${sc.a}</span>
+                        <button onclick="adjustScore(${court.id},'a',1)" class="card-score-btn bg-indigo-100 text-indigo-700">+</button>
+                    </div>` : `<span class="text-2xl font-black ${winA ? 'text-yellow-500' : 'text-indigo-600'}">${sc.a}</span>`}
+                    ${winA ? `<span class="text-[9px] text-yellow-600 font-black">&#127942; ชนะ</span>` : ''}
+                </div>
+                <span class="text-slate-300 font-black text-xs flex-shrink-0">—</span>
+                <div class="flex flex-col items-center flex-1">
+                    ${priv ? `<div class="flex items-center gap-1.5">
+                        <button onclick="adjustScore(${court.id},'b',-1)" class="card-score-btn bg-slate-200 text-slate-600">&#8722;</button>
+                        <span class="text-2xl font-black min-w-[2.25rem] text-center ${winB ? 'text-yellow-500' : 'text-rose-500'}">${sc.b}</span>
+                        <button onclick="adjustScore(${court.id},'b',1)" class="card-score-btn bg-rose-100 text-rose-600">+</button>
+                    </div>` : `<span class="text-2xl font-black ${winB ? 'text-yellow-500' : 'text-rose-500'}">${sc.b}</span>`}
+                    ${winB ? `<span class="text-[9px] text-yellow-600 font-black">&#127942; ชนะ</span>` : ''}
+                </div>
+            </div>`;
         const resultBtns = priv ? `
             <div class="px-4 pb-4 pt-1.5">
                 <div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2 text-center">ผลการแข่ง</div>
@@ -1545,13 +1677,14 @@ function renderCourtCards() {
         return `<div class="court-card playing pop-in">
             <div class="flex items-center justify-between px-5 pt-4 pb-2">
                 <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span><span class="text-[11px] font-black text-indigo-500 uppercase tracking-widest">COURT ${court.id}${court.koLabel ? ` <span class="bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded ml-1">${court.koLabel}</span>` : ''}</span></div>
-                <div class="flex items-center gap-1.5"><span class="text-[10px] text-slate-400 font-bold mr-1">${currentMode === 1 ? 'บาลานซ์' : currentMode===2 ? 'วนรอบ' : '&#9876;&#65039; Knockout'}</span>${editBtn}${reshuffleBtn}</div>
+                <div class="flex items-center gap-1.5"><span class="text-[10px] text-slate-400 font-bold mr-1">${currentMode === 1 ? 'บาลานซ์' : currentMode===2 ? 'วนรอบ' : '&#9876;&#65039; Knockout'}</span>${editBtn}${reshuffleBtn}${expandBtn}</div>
             </div>
             <div class="flex flex-col sm:flex-row items-stretch">
                 <div class="team-a flex-1 px-5 py-3 text-center"><div class="text-indigo-500 text-[10px] font-black uppercase tracking-wider mb-1.5">${tA_l}${priv ? ` · &#11088;${sA}` : ''}</div>${court.teamA.map(p=>`<div class="font-black text-slate-800 text-sm leading-snug">${p.name}</div>`).join('')}${(()=>{const c=pairCount(court.teamA);return c>0?`<div class="mt-1 text-[10px] text-indigo-400 font-bold">&#129309; คู่กันมาแล้ว ${c} ครั้ง</div>`:''})()}</div>
                 <div class="flex items-center justify-center px-3 py-1"><span class="text-slate-300 font-black text-xs">VS</span></div>
                 <div class="team-b flex-1 px-5 py-3 text-center"><div class="text-rose-500 text-[10px] font-black uppercase tracking-wider mb-1.5">${tB_l}${priv ? ` · &#11088;${sB}` : ''}</div>${court.teamB.map(p=>`<div class="font-black text-slate-800 text-sm leading-snug">${p.name}</div>`).join('')}${(()=>{const c=pairCount(court.teamB);return c>0?`<div class="mt-1 text-[10px] text-rose-400 font-bold">&#129309; คู่กันมาแล้ว ${c} ครั้ง</div>`:''})()}</div>
             </div>
+            ${scoreSection}
             ${resultBtns}
         </div>`;
     }).join(''); lucide.createIcons();
@@ -1802,5 +1935,11 @@ function renderMoneyResult() {
         </div>`;
 }
 </script>
+
+<!-- Scoreboard Full-Screen Overlay -->
+<div id="scoreboardOverlay" class="hidden fixed inset-0 z-[200] flex flex-col" style="background:#0f172a;font-family:'Kanit',sans-serif;">
+    <div id="scoreboardContent" class="flex flex-col h-full overflow-hidden"></div>
+</div>
+
 </body>
 </html>
